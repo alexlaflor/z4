@@ -1,0 +1,6 @@
+Coloque aqui os PNG dos escudos, um por time, com a sigla de tres letras:
+FLA.png PAL.png CAP.png BAH.png FLU.png CRU.png CAM.png CTB.png RBB.png SAN.png
+BOT.png SAO.png VIT.png COR.png MIR.png GRE.png VAS.png INT.png REM.png CHA.png
+
+Fundo transparente, algo em torno de 128x128 px.
+Enquanto o arquivo nao existir, o app desenha um escudo com as cores da camisa.

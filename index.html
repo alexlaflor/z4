@@ -1,0 +1,477 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Quem cai — Brasileirao 2026</title>
+<meta name="description" content="Simule os jogos que faltam de Internacional, Gremio, Vasco e Mirassol e veja quais dois caem.">
+<meta property="og:title" content="Quem cai - Brasileirao 2026">
+<meta property="og:description" content="Simule os jogos que faltam e veja quais dois caem.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>html,body{margin:0;padding:0;-webkit-text-size-adjust:100%}
+#carregando{font:15px/1.5 system-ui,sans-serif;color:#6b7076;padding:24px}</style>
+</head>
+<body>
+<div id="root"><div id="carregando">Carregando...</div></div>
+
+<script src="resultados.js"></script>
+<script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+<script src="https://unpkg.com/@babel/standalone@7/babel.min.js"></script>
+<script>
+window.RESULTADOS = window.RESULTADOS || "";
+window.addEventListener("error", function (e) {
+  var r = document.getElementById("root");
+  if (r && r.querySelector("#carregando")) r.innerHTML =
+    '<div id="carregando">Nao foi possivel carregar. Verifique a conexao com a internet e recarregue.<br><br><code>' +
+    (e.message || "") + '</code></div>';
+});
+</script>
+
+<script type="text/babel" data-presets="react">
+const { useState, useMemo, useRef, useEffect } = React;
+
+/* ------------------------------------------------------------------ */
+/*  Base: classificação em 17/09/2026, após a 27ª rodada               */
+/*  Os jogos lançados em resultados.js são somados sobre esta base.    */
+/*  [código, nome, J, V, E, D, GP, GC]                                 */
+/* ------------------------------------------------------------------ */
+const LIGA = [
+  ["FLA", "Flamengo", 27, 17, 6, 4, 53, 22],
+  ["PAL", "Palmeiras", 27, 16, 8, 3, 47, 21],
+  ["CAP", "Athletico-PR", 27, 13, 7, 7, 41, 31],
+  ["BAH", "Bahia", 27, 12, 10, 5, 42, 33],
+  ["FLU", "Fluminense", 27, 12, 9, 6, 41, 35],
+  ["CRU", "Cruzeiro", 27, 12, 6, 9, 39, 39],
+  ["CAM", "Atlético-MG", 26, 11, 6, 9, 35, 31],
+  ["CTB", "Coritiba", 27, 10, 8, 9, 37, 38],
+  ["RBB", "Bragantino", 26, 10, 6, 10, 32, 29],
+  ["SAN", "Santos", 26, 9, 8, 9, 39, 39],
+  ["BOT", "Botafogo", 27, 9, 8, 10, 41, 43],
+  ["SAO", "São Paulo", 26, 9, 6, 11, 31, 30],
+  ["VIT", "Vitória", 27, 9, 6, 12, 27, 39],
+  ["COR", "Corinthians", 27, 8, 8, 11, 28, 29],
+  ["MIR", "Mirassol", 27, 7, 8, 12, 31, 42],
+  ["GRE", "Grêmio", 27, 7, 7, 13, 30, 38],
+  ["VAS", "Vasco", 26, 7, 7, 12, 29, 41],
+  ["INT", "Internacional", 27, 6, 10, 11, 30, 35],
+  ["REM", "Remo", 27, 5, 8, 14, 31, 45],
+  ["CHA", "Chapecoense", 26, 3, 8, 15, 28, 52],
+];
+const NOMES = {}; LIGA.forEach((t) => (NOMES[t[0]] = t[1]));
+const FOCO = ["INT", "GRE", "VAS", "MIR"];
+const COR = { INT: "#c4122e", GRE: "#0d80bf", VAS: "#1b1b1b", MIR: "#0e7a3c" };
+
+/* Jogos dos quatro daqui até o fim: [rodada, mandante, visitante] */
+const JOGOS = [
+  [21, "CHA", "VAS"],
+  [28, "SAO", "INT"], [28, "GRE", "PAL"], [28, "VAS", "CTB"], [28, "MIR", "BOT"],
+  [29, "INT", "COR"], [29, "REM", "GRE"], [29, "BOT", "VAS"], [29, "RBB", "MIR"],
+  [30, "GRE", "INT"], [30, "VAS", "REM"], [30, "BAH", "MIR"],
+  [31, "MIR", "INT"], [31, "GRE", "CRU"], [31, "SAO", "VAS"],
+  [32, "INT", "BOT"], [32, "CTB", "GRE"], [32, "VAS", "COR"], [32, "MIR", "SAO"],
+  [33, "FLU", "INT"], [33, "GRE", "CAP"], [33, "VAS", "FLA"], [33, "COR", "MIR"],
+  [34, "INT", "CTB"], [34, "FLA", "GRE"], [34, "CAP", "VAS"], [34, "CHA", "MIR"],
+  [35, "VAS", "INT"], [35, "GRE", "BAH"], [35, "MIR", "CAM"],
+  [36, "INT", "VIT"], [36, "SAN", "GRE"], [36, "RBB", "VAS"], [36, "FLU", "MIR"],
+  [37, "INT", "RBB"], [37, "COR", "GRE"], [37, "CAM", "VAS"], [37, "MIR", "CAP"],
+  [38, "CRU", "INT"], [38, "GRE", "MIR"], [38, "VAS", "VIT"],
+].map(([r, h, a]) => ({ id: `${r}-${h}-${a}`, r, h, a, duelo: FOCO.includes(h) && FOCO.includes(a) }));
+
+const RODADAS = [...new Set(JOGOS.map((j) => j.r))].sort((a, b) => a - b);
+const grade = {};
+RODADAS.forEach((r) => {
+  grade[r] = {};
+  FOCO.forEach((t) => {
+    const j = JOGOS.find((x) => x.r === r && (x.h === t || x.a === t));
+    grade[r][t] = j ? { j, casa: j.h === t, adv: j.h === t ? j.a : j.h } : null;
+  });
+});
+
+/* ------------------------------------------------------------------ */
+/*  Leitura do resultados.js / planilha                                */
+/* ------------------------------------------------------------------ */
+function lerResultados(texto) {
+  const jogos = {}, erros = [];
+  (texto || "").split(/\r?\n/).forEach((linha, i) => {
+    const l = linha.trim();
+    if (!l || l.startsWith("#")) return;
+    const p = l.split(/[,;\t]/).map((x) => x.trim());
+    if (p.length < 5) { erros.push(`linha ${i + 1}: faltam campos — "${l}"`); return; }
+    const [r, h, a, gh, ga] = p;
+    if (!NOMES[h.toUpperCase()] || !NOMES[a.toUpperCase()]) { erros.push(`linha ${i + 1}: sigla desconhecida — "${l}"`); return; }
+    if (!/^\d+$/.test(gh) || !/^\d+$/.test(ga)) { erros.push(`linha ${i + 1}: placar inválido — "${l}"`); return; }
+    const id = `${parseInt(r, 10)}-${h.toUpperCase()}-${a.toUpperCase()}`;
+    if (jogos[id]) { erros.push(`linha ${i + 1}: jogo repetido — "${l}"`); return; }
+    jogos[id] = { r: parseInt(r, 10), h: h.toUpperCase(), a: a.toUpperCase(), gh: +gh, ga: +ga };
+  });
+  return { jogos, erros };
+}
+
+function construir(oficiais) {
+  const T = {};
+  LIGA.forEach((t) => (T[t[0]] = { code: t[0], nome: t[1], j: t[2], v: t[3], e: t[4], d: t[5], gp: t[6], gc: t[7] }));
+  const avisos = [];
+  Object.values(oficiais).forEach((g) => {
+    const H = T[g.h], A = T[g.a];
+    H.j++; A.j++; H.gp += g.gh; H.gc += g.ga; A.gp += g.ga; A.gc += g.gh;
+    if (g.gh > g.ga) { H.v++; A.d++; } else if (g.gh < g.ga) { A.v++; H.d++; } else { H.e++; A.e++; }
+  });
+  Object.values(T).forEach((t) => {
+    t.pts = t.v * 3 + t.e; t.sg = t.gp - t.gc;
+    if (t.j > 38) avisos.push(`${t.nome} está com ${t.j} jogos — algum resultado foi lançado duas vezes.`);
+  });
+  const LG = Object.values(T).reduce((s, t) => s + t.gp, 0) / Object.values(T).reduce((s, t) => s + t.j, 0);
+  const K = 0.8, ATT = {}, DEF = {};
+  Object.values(T).forEach((t) => {
+    ATT[t.code] = 1 + K * ((t.gp / t.j) / LG - 1);
+    DEF[t.code] = 1 + K * ((t.gc / t.j) / LG - 1);
+  });
+  return { T, ATT, DEF, HM: 2 * LG * 0.555, AM: 2 * LG * 0.445, avisos };
+}
+
+/* ------------------------------------------------------------------ */
+/*  Escudos — arquivos em escudos/XXX.png, com desenho de reserva      */
+/* ------------------------------------------------------------------ */
+const PASTA = "escudos", EXT = "png";
+const PADRAO = {
+  FLA: { t: "h", c: ["#c8102e", "#16181d"] },
+  PAL: { t: "s", c: ["#046a38"] },
+  CAP: { t: "v", c: ["#c8102e", "#16181d"], n: 4 },
+  BAH: { t: "b", c: ["#1a4fa0", "#e2231a", "#ffffff"] },
+  FLU: { t: "v3", c: ["#9f2241", "#0f7a3d", "#ffffff"] },
+  CRU: { t: "s", c: ["#1b3a8c"] },
+  CAM: { t: "v", c: ["#16181d", "#ffffff"], n: 6 },
+  CTB: { t: "h", c: ["#0b6b3a", "#ffffff"] },
+  RBB: { t: "d", c: ["#ffffff", "#d6001c"] },
+  SAN: { t: "s", c: ["#ffffff"] },
+  BOT: { t: "v", c: ["#16181d", "#ffffff"], n: 8 },
+  SAO: { t: "b", c: ["#ffffff", "#c8102e", "#16181d"] },
+  VIT: { t: "v", c: ["#c8102e", "#16181d"], n: 8 },
+  COR: { t: "b", c: ["#ffffff", "#16181d", "#ffffff"] },
+  MIR: { t: "h", c: ["#f2c200", "#0e7a3c"] },
+  GRE: { t: "v3", c: ["#0d80bf", "#16181d", "#ffffff"] },
+  VAS: { t: "d", c: ["#ffffff", "#16181d"] },
+  INT: { t: "s", c: ["#c4122e"] },
+  REM: { t: "v", c: ["#0b2d6b", "#ffffff"], n: 6 },
+  CHA: { t: "v3", c: ["#0e7a3c", "#ffffff", "#0e7a3c"] },
+};
+const ESCUDO_D = "M2 1.5H22V15.5C22 21 17.2 25 12 26.5C6.8 25 2 21 2 15.5Z";
+
+function Desenho({ code, size }) {
+  const p = PADRAO[code] || { t: "s", c: ["#9aa0a6"] };
+  const id = `cl-${code}`;
+  const f = [];
+  if (p.t === "s") f.push(<rect key="0" x="0" y="0" width="24" height="28" fill={p.c[0]} />);
+  if (p.t === "h") for (let i = 0; i < 6; i++) f.push(<rect key={i} x="0" y={i * 4.7} width="24" height="4.7" fill={p.c[i % 2]} />);
+  if (p.t === "v") { const n = p.n || 6, w = 24 / n; for (let i = 0; i < n; i++) f.push(<rect key={i} x={i * w} y="0" width={w} height="28" fill={p.c[i % 2]} />); }
+  if (p.t === "v3") { const w = 4; for (let i = 0; i < 6; i++) f.push(<rect key={i} x={i * w} y="0" width={w} height="28" fill={p.c[i % 3]} />); }
+  if (p.t === "b") {
+    f.push(<rect key="a" x="0" y="0" width="24" height="28" fill={p.c[0]} />);
+    f.push(<rect key="b" x="0" y="9" width="24" height="5.5" fill={p.c[1]} />);
+    f.push(<rect key="c" x="0" y="14.5" width="24" height="5.5" fill={p.c[2]} />);
+  }
+  if (p.t === "d") {
+    f.push(<rect key="a" x="0" y="0" width="24" height="28" fill={p.c[0]} />);
+    f.push(<polygon key="b" points="0,20 17,0 24,0 24,5 6,28 0,28" fill={p.c[1]} />);
+  }
+  return (
+    <svg width={size} height={size * 28 / 24} viewBox="0 0 24 28" style={{ display: "block", flexShrink: 0 }} aria-hidden="true">
+      <defs><clipPath id={id}><path d={ESCUDO_D} /></clipPath></defs>
+      <g clipPath={`url(#${id})`}>{f}</g>
+      <path d={ESCUDO_D} fill="none" stroke="#16181d" strokeOpacity=".55" strokeWidth="1.6" />
+    </svg>
+  );
+}
+function Escudo({ code, size = 16 }) {
+  const [falhou, setFalhou] = useState(false);
+  if (falhou) return <Desenho code={code} size={size} />;
+  return <img src={`${PASTA}/${code}.${EXT}`} alt="" onError={() => setFalhou(true)}
+    style={{ display: "block", flexShrink: 0, width: size, height: size, objectFit: "contain" }} />;
+}
+
+/* ------------------------------------------------------------------ */
+const FACT = [1]; for (let i = 1; i < 12; i++) FACT[i] = FACT[i - 1] * i;
+const pk = (l, k) => (Math.exp(-l) * Math.pow(l, k)) / FACT[k];
+function rp(l) { const L = Math.exp(-l); let k = 0, p = 1; do { k++; p *= Math.random(); } while (p > L); return k - 1; }
+const CICLO = { undefined: "V", V: "E", E: "D", D: undefined };
+const RES_COR = { V: "#15803d", E: "#8a8f96", D: "#b3312c" };
+
+function App() {
+  const [fonte, setFonte] = useState(() => window.RESULTADOS || "");
+  const [picks, setPicks] = useState({});
+  const [mc, setMc] = useState(null);
+  const [rodando, setRodando] = useState(false);
+  const parar = useRef(false);
+
+  /* planilha externa, se configurada em resultados.js */
+  useEffect(() => {
+    const url = window.PLANILHA_CSV;
+    if (!url) return;
+    fetch(url).then((r) => r.text()).then((t) => setFonte(t)).catch(() => {});
+  }, []);
+
+  const { jogos: oficiais, erros } = useMemo(() => lerResultados(fonte), [fonte]);
+  const { T, ATT, DEF, HM, AM, avisos } = useMemo(() => construir(oficiais), [oficiais]);
+
+  const lam = (h, a) => [HM * ATT[h] * DEF[a], AM * ATT[a] * DEF[h]];
+  const odds = (h, a) => {
+    const [lh, la] = lam(h, a);
+    let w = 0, d = 0, l = 0;
+    for (let i = 0; i < 11; i++) for (let j = 0; j < 11; j++) {
+      const p = pk(lh, i) * pk(la, j);
+      if (i > j) w += p; else if (i === j) d += p; else l += p;
+    }
+    const s = w + d + l; return [w / s, d / s, l / s];
+  };
+
+  const pendentes = useMemo(() => JOGOS.filter((j) => !oficiais[j.id]), [oficiais]);
+
+  const set = (jogo, timeCol, val) => {
+    const doMandante = jogo.h === timeCol ? val : val === "V" ? "D" : val === "D" ? "V" : val;
+    setMc(null);
+    setPicks((p) => { const n = { ...p }; if (!doMandante) delete n[jogo.id]; else n[jogo.id] = doMandante; return n; });
+  };
+  const verPor = (jogo, time) => {
+    const r = picks[jogo.id]; if (!r) return undefined;
+    return jogo.h === time ? r : r === "V" ? "D" : r === "D" ? "V" : "E";
+  };
+
+  const tabela = useMemo(() => {
+    const out = FOCO.map((c) => ({ ...T[c], add: 0, addV: 0, feitos: 0, total: 0 }));
+    const by = {}; out.forEach((o) => (by[o.code] = o));
+    pendentes.forEach((j) => {
+      [j.h, j.a].filter((t) => FOCO.includes(t)).forEach((t) => {
+        const o = by[t]; o.total++;
+        const r = verPor(j, t); if (!r) return;
+        o.feitos++;
+        if (r === "V") { o.add += 3; o.addV++; } else if (r === "E") o.add += 1;
+      });
+    });
+    out.forEach((o) => { o.fim = o.pts + o.add; o.vFim = o.v + o.addV; });
+    out.sort((x, y) => y.fim - x.fim || y.vFim - x.vFim || y.sg - x.sg);
+    return out;
+  }, [picks, T, pendentes]);
+
+  const faltam = pendentes.filter((j) => !picks[j.id]).length;
+
+  const sortear = () => {
+    const n = { ...picks };
+    pendentes.forEach((j) => {
+      if (n[j.id]) return;
+      const [w, d] = odds(j.h, j.a); const x = Math.random();
+      n[j.id] = x < w ? "V" : x < w + d ? "E" : "D";
+    });
+    setPicks(n); setMc(null);
+  };
+
+  const simular = () => {
+    if (rodando) return;
+    setRodando(true); parar.current = false;
+    const NS = 10000, queda = {}, soma = {};
+    FOCO.forEach((c) => { queda[c] = 0; soma[c] = 0; });
+    let feito = 0;
+    const passo = () => {
+      if (parar.current) { setRodando(false); return; }
+      for (let s = 0; s < 500 && feito < NS; s++, feito++) {
+        const st = {};
+        FOCO.forEach((c) => (st[c] = { pts: T[c].pts, v: T[c].v, gp: T[c].gp, gc: T[c].gc }));
+        pendentes.forEach((j) => {
+          const [lh, la] = lam(j.h, j.a);
+          let x, y, fix = picks[j.id], n = 0;
+          do {
+            x = rp(lh); y = rp(la); n++;
+            if (!fix) break;
+            const r = x > y ? "V" : x === y ? "E" : "D";
+            if (r === fix) break;
+          } while (n < 60);
+          if (fix && n >= 60) { x = fix === "V" ? 1 : 0; y = fix === "D" ? 1 : 0; }
+          if (st[j.h]) { const o = st[j.h]; o.gp += x; o.gc += y; if (x > y) { o.pts += 3; o.v++; } else if (x === y) o.pts++; }
+          if (st[j.a]) { const o = st[j.a]; o.gp += y; o.gc += x; if (y > x) { o.pts += 3; o.v++; } else if (x === y) o.pts++; }
+        });
+        const ord = FOCO.slice().sort((a, b) => {
+          const A = st[a], B = st[b];
+          return B.pts - A.pts || B.v - A.v || (B.gp - B.gc) - (A.gp - A.gc) || B.gp - A.gp || Math.random() - 0.5;
+        });
+        queda[ord[2]]++; queda[ord[3]]++;
+        FOCO.forEach((c) => (soma[c] += st[c].pts));
+      }
+      if (feito < NS) requestAnimationFrame(passo);
+      else {
+        const r = {}; FOCO.forEach((c) => (r[c] = { queda: queda[c] / NS, pts: soma[c] / NS }));
+        setMc(r); setRodando(false);
+      }
+    };
+    requestAnimationFrame(passo);
+  };
+
+  const problemas = [...erros, ...avisos];
+
+  return (
+    <div style={S.shell}>
+      <style>{`
+        *{box-sizing:border-box}
+        button{font-family:inherit;border:none;background:none;color:inherit;cursor:pointer;padding:0}
+        button:focus-visible{outline:2px solid #e8a33d;outline-offset:-2px}
+        .num{font-variant-numeric:tabular-nums}
+      `}</style>
+
+      <header style={S.head}>
+        <h1 style={S.h1}>Quem cai</h1>
+        <p style={S.sub}>
+          Dois destes quatro descem junto com Chapecoense e Remo. Toque na célula para alternar
+          vitória, empate e derrota. Jogos já disputados aparecem com o placar e não mudam.
+        </p>
+        <div style={S.cols}>
+          <span style={S.rlabel} />
+          {FOCO.map((c) => (
+            <div key={c} style={S.colHead}>
+              <Escudo code={c} size={26} />
+              <span style={S.colName}>{c}</span>
+              <span style={S.colPts} className="num">{T[c].pts} pts</span>
+              <i style={{ ...S.flag, background: COR[c] }} />
+            </div>
+          ))}
+        </div>
+      </header>
+
+      <main style={S.main}>
+        {problemas.length > 0 && (
+          <div style={S.erro}>
+            <b>resultados.js precisa de atenção</b>
+            {problemas.map((e, i) => <div key={i}>{e}</div>)}
+          </div>
+        )}
+
+        {RODADAS.map((r) => (
+          <div key={r} style={S.linha}>
+            <span style={S.rlabel} className="num">{r}ª</span>
+            {FOCO.map((c) => {
+              const g = grade[r][c];
+              if (!g) return <div key={c} style={S.vazio}>—</div>;
+              const of = oficiais[g.j.id];
+              if (of) {
+                const meu = g.casa ? of.gh : of.ga, dele = g.casa ? of.ga : of.gh;
+                const sinal = meu > dele ? "V" : meu === dele ? "E" : "D";
+                return (
+                  <div key={c} style={{ ...S.cel, ...S.celFixa }} title={`${NOMES[g.adv]} — resultado oficial`}>
+                    <span style={S.advLinha}><Escudo code={g.adv} size={15} /><span style={S.adv}>{g.adv}</span></span>
+                    <span style={S.local}>{g.casa ? "🏠" : "✈️"}</span>
+                    <span style={{ ...S.placar, color: RES_COR[sinal] }} className="num">{meu}–{dele}</span>
+                  </div>
+                );
+              }
+              const res = verPor(g.j, c);
+              return (
+                <button key={c} style={{ ...S.cel, borderColor: res ? RES_COR[res] : "#dcdeD8" }}
+                  onClick={() => set(g.j, c, CICLO[res])}
+                  title={`${g.casa ? "em casa contra" : "fora contra"} ${NOMES[g.adv]}`}>
+                  <span style={S.advLinha}><Escudo code={g.adv} size={15} /><span style={S.adv}>{g.adv}</span></span>
+                  <span style={S.local}>{g.casa ? "🏠" : "✈️"}{g.j.duelo ? " ·" : ""}</span>
+                  <span style={{ ...S.res, color: res ? RES_COR[res] : "#c2c5bf" }}>{res || "·"}</span>
+                </button>
+              );
+            })}
+          </div>
+        ))}
+
+        <div style={S.acoes}>
+          <button style={S.act} onClick={sortear} disabled={!faltam}>
+            {faltam ? `Sortear os ${faltam} que faltam` : "Tudo preenchido"}
+          </button>
+          <button style={S.act} onClick={() => { setPicks({}); setMc(null); }}>Limpar palpites</button>
+        </div>
+
+        <div style={S.blocoMc}>
+          <button style={S.mcBtn} onClick={simular} disabled={rodando}>
+            {rodando ? "Simulando…" : "Rodar 10 mil cenários"}
+          </button>
+          {mc && (
+            <div style={S.mcGrid}>
+              {FOCO.map((c) => (
+                <div key={c} style={S.mcItem}>
+                  <Escudo code={c} size={20} />
+                  <span style={S.mcPts} className="num">{mc[c].pts.toFixed(1)} pts</span>
+                  <span style={{ ...S.mcQ, color: mc[c].queda > 0.5 ? "#b3312c" : "#3d4148" }} className="num">
+                    {(mc[c].queda * 100).toFixed(0)}% cai
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+          <p style={S.mcNota}>A simulação preenche só os jogos em branco e mantém os seus palpites.</p>
+        </div>
+
+        <p style={S.aviso}>
+          Quem vem logo acima: Corinthians com 32 pontos, Vitória e São Paulo com 33.
+          Se algum deles despencar, a conta de quatro times deixa de valer.
+        </p>
+      </main>
+
+      <footer style={S.foot}>
+        {tabela.map((t, i) => {
+          const cai = i >= 2;
+          const emp = (i > 0 && tabela[i - 1].fim === t.fim && tabela[i - 1].vFim === t.vFim) ||
+            (i < 3 && tabela[i + 1].fim === t.fim && tabela[i + 1].vFim === t.vFim);
+          return (
+            <div key={t.code} style={{ ...S.fItem, background: cai ? "#fbecea" : "#eef3ee" }}>
+              <Escudo code={t.code} size={20} />
+              <span style={S.fPts} className="num">{t.fim}</span>
+              <span style={S.fSub} className="num">{t.feitos}/{t.total}{emp ? " · saldo" : ""}</span>
+            </div>
+          );
+        })}
+      </footer>
+    </div>
+  );
+}
+
+const S = {
+  shell: { minHeight: "100vh", background: "#eceee8", color: "#16181d", display: "flex", flexDirection: "column", fontFamily: "'Barlow',system-ui,-apple-system,sans-serif", fontSize: 15 },
+  head: { position: "sticky", top: 0, zIndex: 5, background: "#fff", borderBottom: "1px solid #d5d7d1", padding: "14px 10px 0" },
+  h1: { margin: 0, fontSize: 25, fontWeight: 700, letterSpacing: "-.3px" },
+  sub: { margin: "6px 0 12px", fontSize: 13, lineHeight: 1.4, color: "#6b7076", maxWidth: "48ch" },
+  cols: { display: "grid", gridTemplateColumns: "30px repeat(4,1fr)", gap: 5 },
+  colHead: { display: "flex", flexDirection: "column", alignItems: "center", gap: 2, paddingBottom: 6 },
+  flag: { width: 22, height: 3, borderRadius: 2, display: "block", marginTop: 2 },
+  colName: { fontSize: 12.5, fontWeight: 700, letterSpacing: ".5px" },
+  colPts: { fontSize: 11.5, color: "#6b7076" },
+
+  main: { flex: 1, padding: "8px 10px 150px", maxWidth: 560, width: "100%", margin: "0 auto" },
+  erro: { background: "#fff6e5", border: "1px solid #e8c07d", borderRadius: 8, padding: "9px 11px", fontSize: 12.5, lineHeight: 1.5, marginBottom: 10 },
+  linha: { display: "grid", gridTemplateColumns: "30px repeat(4,1fr)", gap: 5, marginBottom: 5, alignItems: "stretch" },
+  rlabel: { fontSize: 12, fontWeight: 600, color: "#6b7076", display: "flex", alignItems: "center", justifyContent: "flex-end", paddingRight: 2 },
+  vazio: { background: "#e3e5df", borderRadius: 7, display: "grid", placeItems: "center", color: "#b9bcb6", fontSize: 13 },
+  cel: { background: "#fff", border: "2px solid #dcdeD8", borderRadius: 7, padding: "5px 2px 4px", display: "flex", flexDirection: "column", alignItems: "center", lineHeight: 1.1 },
+  celFixa: { background: "#f3f4f1", borderStyle: "dashed", borderColor: "#c9ccc5", cursor: "default" },
+  advLinha: { display: "flex", alignItems: "center", gap: 3 },
+  adv: { fontSize: 12, fontWeight: 600, letterSpacing: ".3px" },
+  local: { fontSize: 11, marginTop: 2, letterSpacing: ".5px" },
+  res: { fontSize: 18, fontWeight: 700, marginTop: 1 },
+  placar: { fontSize: 15, fontWeight: 700, marginTop: 2 },
+
+  acoes: { display: "flex", gap: 8, marginTop: 14 },
+  act: { flex: 1, background: "#fff", border: "1px solid #d5d7d1", borderRadius: 8, padding: "10px", fontSize: 14, fontWeight: 600 },
+
+  blocoMc: { marginTop: 14, background: "#fff", border: "1px solid #d5d7d1", borderRadius: 10, padding: 12 },
+  mcBtn: { width: "100%", background: "#16181d", color: "#fff", borderRadius: 8, padding: "11px", fontSize: 15, fontWeight: 600 },
+  mcGrid: { display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 6, marginTop: 10 },
+  mcItem: { display: "flex", flexDirection: "column", alignItems: "center", gap: 2 },
+  mcPts: { fontSize: 12, color: "#6b7076" },
+  mcQ: { fontSize: 14, fontWeight: 700 },
+  mcNota: { margin: "9px 0 0", fontSize: 11.5, color: "#8a8f96", lineHeight: 1.4 },
+  aviso: { marginTop: 14, fontSize: 12, lineHeight: 1.5, color: "#8a8f96", maxWidth: "52ch" },
+
+  foot: { position: "fixed", left: 0, right: 0, bottom: 0, background: "#fff", borderTop: "1px solid #d5d7d1", padding: "9px 10px calc(9px + env(safe-area-inset-bottom))", display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 6, maxWidth: 560, margin: "0 auto" },
+  fItem: { borderRadius: 8, padding: "7px 4px", display: "flex", flexDirection: "column", alignItems: "center", gap: 2 },
+  fPts: { fontSize: 20, fontWeight: 700, lineHeight: 1 },
+  fSub: { fontSize: 10, color: "#8a8f96" },
+};
+
+
+ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+</script>
+</body>
+</html>
