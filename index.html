@@ -199,6 +199,118 @@ function rp(l) { const L = Math.exp(-l); let k = 0, p = 1; do { k++; p *= Math.r
 const CICLO = { undefined: "V", V: "E", E: "D", D: undefined };
 const RES_COR = { V: "#15803d", E: "#8a8f96", D: "#b3312c" };
 
+
+/* ------------------------------------------------------------------ */
+/*  Imagem para compartilhar                                           */
+/* ------------------------------------------------------------------ */
+function svgEscudo(code) {
+  const p = PADRAO[code] || { t: "s", c: ["#9aa0a6"] };
+  let f = "";
+  const rect = (x, y, w, h, cor) => `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="${cor}"/>`;
+  if (p.t === "s") f = rect(0, 0, 24, 28, p.c[0]);
+  if (p.t === "h") for (let i = 0; i < 6; i++) f += rect(0, i * 4.7, 24, 4.7, p.c[i % 2]);
+  if (p.t === "v") { const n = p.n || 6, w = 24 / n; for (let i = 0; i < n; i++) f += rect(i * w, 0, w, 28, p.c[i % 2]); }
+  if (p.t === "v3") for (let i = 0; i < 6; i++) f += rect(i * 4, 0, 4, 28, p.c[i % 3]);
+  if (p.t === "b") f = rect(0, 0, 24, 28, p.c[0]) + rect(0, 9, 24, 5.5, p.c[1]) + rect(0, 14.5, 24, 5.5, p.c[2]);
+  if (p.t === "d") f = rect(0, 0, 24, 28, p.c[0]) +
+    `<polygon points="0,20 17,0 24,0 24,5 6,28 0,28" fill="${p.c[1]}"/>`;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 28" width="96" height="112">` +
+    `<defs><clipPath id="c"><path d="${ESCUDO_D}"/></clipPath></defs>` +
+    `<g clip-path="url(#c)">${f}</g>` +
+    `<path d="${ESCUDO_D}" fill="none" stroke="#16181d" stroke-opacity=".55" stroke-width="1.6"/></svg>`;
+  return "data:image/svg+xml;base64," + btoa(unescape(encodeURIComponent(svg)));
+}
+const carregaImg = (src) => new Promise((ok, falha) => {
+  const im = new Image(); im.onload = () => ok(im); im.onerror = falha; im.src = src;
+});
+async function escudoImg(code, usarPng) {
+  if (usarPng) { try { return await carregaImg(`${PASTA}/${code}.${EXT}`); } catch (e) { /* sem arquivo */ } }
+  return carregaImg(svgEscudo(code));
+}
+
+async function desenharCard({ tabela, oficiais, verPor, usarPng, link }) {
+  try { if (document.fonts && document.fonts.ready) await document.fonts.ready; } catch (e) {}
+  const L = 90, GAP = 14, M = 40, W = 1080;
+  const CW = (W - 2 * M - L - 3 * GAP) / 4;
+  const TOPO = 250, RH = 76;
+  const H = TOPO + RODADAS.length * RH + 230;
+  const cv = document.createElement("canvas");
+  cv.width = W; cv.height = H;
+  const c = cv.getContext("2d");
+  const fonte = (px, peso = "400") => `${peso} ${px}px Barlow, system-ui, sans-serif`;
+  const cx = (t, x, y, f, cor, al = "center") => { c.font = f; c.fillStyle = cor; c.textAlign = al; c.fillText(t, x, y); };
+  const caixa = (x, y, w, h, r, cor) => {
+    c.fillStyle = cor; c.beginPath();
+    c.moveTo(x + r, y); c.arcTo(x + w, y, x + w, y + h, r); c.arcTo(x + w, y + h, x, y + h, r);
+    c.arcTo(x, y + h, x, y, r); c.arcTo(x, y, x + w, y, r); c.fill();
+  };
+
+  c.fillStyle = "#eceee8"; c.fillRect(0, 0, W, H);
+  c.fillStyle = "#ffffff"; c.fillRect(0, 0, W, TOPO - 18);
+
+  cx("Quem cai", M, 78, fonte(54, "700"), "#16181d", "left");
+  cx("Brasileirão 2026 · minha simulação", M, 116, fonte(26), "#6b7076", "left");
+
+  const colX = (i) => M + L + i * (CW + GAP);
+  const ordem = FOCO.map((code) => tabela.find((t) => t.code === code));
+  const imgs = {};
+  for (const code of Object.keys(PADRAO)) imgs[code] = null;
+  for (const code of FOCO) imgs[code] = await escudoImg(code, usarPng);
+
+  ordem.forEach((t, i) => {
+    const x = colX(i) + CW / 2;
+    if (imgs[t.code]) {
+      const im = imgs[t.code], h = 56, w = im.width ? (im.width / im.height) * h : 48;
+      c.drawImage(im, x - w / 2, 142, w, h);
+    }
+    cx(t.code, x, 222, fonte(28, "700"), "#16181d");
+  });
+
+  RODADAS.forEach((r, ri) => {
+    const y = TOPO + ri * RH;
+    cx(`${r}ª`, M + L - 12, y + 46, fonte(22, "600"), "#8a8f96", "right");
+    FOCO.forEach((code, i) => {
+      const g = grade[r][code], x = colX(i);
+      if (!g) { caixa(x, y, CW, RH - 8, 10, "#e3e5df"); cx("—", x + CW / 2, y + 44, fonte(24), "#b9bcb6"); return; }
+      const of = oficiais[g.j.id];
+      const res = of
+        ? ((g.casa ? of.gh : of.ga) > (g.casa ? of.ga : of.gh) ? "V"
+          : (g.casa ? of.gh : of.ga) === (g.casa ? of.ga : of.gh) ? "E" : "D")
+        : verPor(g.j, code);
+      caixa(x, y, CW, RH - 8, 10, of ? "#f3f4f1" : "#ffffff");
+      cx(`${g.adv} ${g.casa ? "casa" : "fora"}`, x + CW / 2, y + 26, fonte(20, "600"), "#6b7076");
+      const txt = of ? `${g.casa ? of.gh : of.ga}–${g.casa ? of.ga : of.gh}` : (res || "·");
+      cx(txt, x + CW / 2, y + 58, fonte(of ? 28 : 32, "700"), res ? RES_COR[res] : "#c9ccc5");
+    });
+  });
+
+  const yb = TOPO + RODADAS.length * RH + 16;
+  ordem.forEach((t, i) => {
+    const cai = tabela.indexOf(t) >= 2, x = colX(i);
+    caixa(x, yb, CW, 118, 12, cai ? "#f6ddd9" : "#e4eee6");
+    if (imgs[t.code]) {
+      const im = imgs[t.code], h = 40, w = im.width ? (im.width / im.height) * h : 34;
+      c.drawImage(im, x + CW / 2 - w / 2, yb + 10, w, h);
+    }
+    cx(String(t.fim), x + CW / 2, yb + 92, fonte(42, "700"), cai ? "#8f2820" : "#16181d");
+  });
+  cx(`Caem: ${tabela[2].nome} e ${tabela[3].nome}`, M, yb + 158, fonte(28, "700"), "#16181d", "left");
+  cx(link, M, yb + 196, fonte(22), "#8a8f96", "left");
+  return cv;
+}
+
+async function gerarImagem(args) {
+  for (const usarPng of [true, false]) {
+    const cv = await desenharCard({ ...args, usarPng });
+    try {
+      const url = cv.toDataURL("image/png");
+      const blob = await new Promise((r) => cv.toBlob(r, "image/png"));
+      if (blob) return { url, blob };
+    } catch (e) { /* escudos de outra origem sujaram o canvas: refaz sem eles */ }
+  }
+  throw new Error("nao foi possivel gerar a imagem");
+}
+
 function App() {
   const [fonte, setFonte] = useState(() => window.RESULTADOS || "");
   const [picks, setPicks] = useState({});
@@ -307,6 +419,41 @@ function App() {
     requestAnimationFrame(passo);
   };
 
+  const [img, setImg] = useState(null);
+  const [gerando, setGerando] = useState(false);
+  const link = typeof location !== "undefined" ? location.href.split("?")[0].split("#")[0] : "";
+
+  const compartilhar = async () => {
+    setGerando(true);
+    try {
+      const r = await gerarImagem({ tabela, oficiais, verPor, link });
+      setImg(r);
+    } catch (e) {
+      alert("Não consegui gerar a imagem neste navegador.");
+    }
+    setGerando(false);
+  };
+
+  const texto = tabela.length
+    ? `Briga contra o rebaixamento: ${tabela.map((t) => `${t.code} ${t.fim}`).join(" · ")}. ` +
+      `Na minha conta caem ${tabela[2].nome} e ${tabela[3].nome}. Faça a sua:`
+    : "";
+
+  const enviar = async () => {
+    if (!img) return;
+    const arq = new File([img.blob], "quem-cai.png", { type: "image/png" });
+    if (navigator.canShare && navigator.canShare({ files: [arq] })) {
+      try { await navigator.share({ files: [arq], text: `${texto} ${link}` }); return; } catch (e) { return; }
+    }
+    baixar();
+    window.open(`https://wa.me/?text=${encodeURIComponent(`${texto} ${link}`)}`, "_blank");
+  };
+  const baixar = () => {
+    if (!img) return;
+    const a = document.createElement("a");
+    a.href = img.url; a.download = "quem-cai.png"; a.click();
+  };
+
   const problemas = [...erros, ...avisos];
 
   return (
@@ -377,6 +524,10 @@ function App() {
           </div>
         ))}
 
+        <button style={S.share} onClick={compartilhar} disabled={gerando}>
+          {gerando ? "Montando a imagem…" : "Compartilhar resultado"}
+        </button>
+
         <div style={S.acoes}>
           <button style={S.act} onClick={sortear} disabled={!faltam}>
             {faltam ? `Sortear os ${faltam} que faltam` : "Tudo preenchido"}
@@ -409,6 +560,19 @@ function App() {
           Se algum deles despencar, a conta de quatro times deixa de valer.
         </p>
       </main>
+
+      {img && (
+        <div style={S.modal} onClick={() => setImg(null)}>
+          <div style={S.modalBox} onClick={(e) => e.stopPropagation()}>
+            <img src={img.url} alt="Resumo da simulação" style={S.preview} />
+            <div style={S.modalBtns}>
+              <button style={S.mBtnA} onClick={enviar}>Enviar</button>
+              <button style={S.mBtnB} onClick={baixar}>Baixar</button>
+              <button style={S.mBtnB} onClick={() => setImg(null)}>Fechar</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <footer style={S.foot}>
         {tabela.map((t, i) => {
@@ -452,11 +616,18 @@ const S = {
   res: { fontSize: 18, fontWeight: 700, marginTop: 1 },
   placar: { fontSize: 15, fontWeight: 700, marginTop: 2 },
 
-  acoes: { display: "flex", gap: 8, marginTop: 14 },
+  share: { width: "100%", marginTop: 14, background: "#16181d", color: "#fff", borderRadius: 8, padding: "13px", fontSize: 16, fontWeight: 600 },
+  acoes: { display: "flex", gap: 8, marginTop: 8 },
+  modal: { position: "fixed", inset: 0, zIndex: 40, background: "rgba(22,24,29,.72)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16 },
+  modalBox: { background: "#fff", borderRadius: 12, padding: 12, maxWidth: 420, width: "100%", maxHeight: "92vh", display: "flex", flexDirection: "column", gap: 10 },
+  preview: { width: "100%", flex: 1, minHeight: 0, objectFit: "contain", borderRadius: 8, border: "1px solid #d5d7d1" },
+  modalBtns: { display: "flex", gap: 8 },
+  mBtnA: { flex: 2, background: "#16181d", color: "#fff", borderRadius: 8, padding: "12px", fontSize: 15, fontWeight: 600 },
+  mBtnB: { flex: 1, background: "#eceee8", borderRadius: 8, padding: "12px", fontSize: 15, fontWeight: 600 },
   act: { flex: 1, background: "#fff", border: "1px solid #d5d7d1", borderRadius: 8, padding: "10px", fontSize: 14, fontWeight: 600 },
 
   blocoMc: { marginTop: 14, background: "#fff", border: "1px solid #d5d7d1", borderRadius: 10, padding: 12 },
-  mcBtn: { width: "100%", background: "#16181d", color: "#fff", borderRadius: 8, padding: "11px", fontSize: 15, fontWeight: 600 },
+  mcBtn: { width: "100%", background: "#fff", border: "1px solid #16181d", color: "#16181d", borderRadius: 8, padding: "11px", fontSize: 15, fontWeight: 600 },
   mcGrid: { display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 6, marginTop: 10 },
   mcItem: { display: "flex", flexDirection: "column", alignItems: "center", gap: 2 },
   mcPts: { fontSize: 12, color: "#6b7076" },
