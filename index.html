@@ -61,23 +61,24 @@ const LIGA = [
   ["CHA", "Chapecoense", 26, 3, 8, 15, 28, 52],
 ];
 const NOMES = {}; LIGA.forEach((t) => (NOMES[t[0]] = t[1]));
-const FOCO = ["INT", "GRE", "VAS", "MIR"];
-const COR = { INT: "#c4122e", GRE: "#0d80bf", VAS: "#1b1b1b", MIR: "#0e7a3c" };
+const FOCO = ["VIT", "COR", "MIR", "VAS", "GRE", "INT"];
+const CAEM = 2;        // quantos dos seis descem
+const FORA = ["CHA", "REM"];  // já rebaixados, não entram na disputa
 
 /* Jogos dos quatro daqui até o fim: [rodada, mandante, visitante] */
 const JOGOS = [
   [21, "CHA", "VAS"],
-  [28, "SAO", "INT"], [28, "GRE", "PAL"], [28, "VAS", "CTB"], [28, "MIR", "BOT"],
-  [29, "INT", "COR"], [29, "REM", "GRE"], [29, "BOT", "VAS"], [29, "RBB", "MIR"],
-  [30, "GRE", "INT"], [30, "VAS", "REM"], [30, "BAH", "MIR"],
-  [31, "MIR", "INT"], [31, "GRE", "CRU"], [31, "SAO", "VAS"],
-  [32, "INT", "BOT"], [32, "CTB", "GRE"], [32, "VAS", "COR"], [32, "MIR", "SAO"],
-  [33, "FLU", "INT"], [33, "GRE", "CAP"], [33, "VAS", "FLA"], [33, "COR", "MIR"],
-  [34, "INT", "CTB"], [34, "FLA", "GRE"], [34, "CAP", "VAS"], [34, "CHA", "MIR"],
-  [35, "VAS", "INT"], [35, "GRE", "BAH"], [35, "MIR", "CAM"],
-  [36, "INT", "VIT"], [36, "SAN", "GRE"], [36, "RBB", "VAS"], [36, "FLU", "MIR"],
-  [37, "INT", "RBB"], [37, "COR", "GRE"], [37, "CAM", "VAS"], [37, "MIR", "CAP"],
-  [38, "CRU", "INT"], [38, "GRE", "MIR"], [38, "VAS", "VIT"],
+  [28, "COR", "FLU"], [28, "GRE", "PAL"], [28, "MIR", "BOT"], [28, "SAO", "INT"], [28, "VAS", "CTB"], [28, "VIT", "CRU"],
+  [29, "BOT", "VAS"], [29, "INT", "COR"], [29, "RBB", "MIR"], [29, "REM", "GRE"], [29, "VIT", "CHA"],
+  [30, "BAH", "MIR"], [30, "GRE", "INT"], [30, "PAL", "COR"], [30, "SAO", "VIT"], [30, "VAS", "REM"],
+  [31, "COR", "VIT"], [31, "GRE", "CRU"], [31, "MIR", "INT"], [31, "SAO", "VAS"],
+  [32, "CTB", "GRE"], [32, "INT", "BOT"], [32, "MIR", "SAO"], [32, "VAS", "COR"], [32, "VIT", "CAP"],
+  [33, "COR", "MIR"], [33, "CTB", "VIT"], [33, "FLU", "INT"], [33, "GRE", "CAP"], [33, "VAS", "FLA"],
+  [34, "CAP", "VAS"], [34, "CHA", "MIR"], [34, "FLA", "GRE"], [34, "INT", "CTB"], [34, "SAO", "COR"], [34, "VIT", "FLU"],
+  [35, "COR", "BOT"], [35, "GRE", "BAH"], [35, "MIR", "CAM"], [35, "VAS", "INT"], [35, "VIT", "RBB"],
+  [36, "CAM", "COR"], [36, "FLU", "MIR"], [36, "INT", "VIT"], [36, "RBB", "VAS"], [36, "SAN", "GRE"],
+  [37, "CAM", "VAS"], [37, "COR", "GRE"], [37, "INT", "RBB"], [37, "MIR", "CAP"], [37, "VIT", "SAN"],
+  [38, "CRU", "INT"], [38, "GRE", "MIR"], [38, "REM", "COR"], [38, "VAS", "VIT"],
 ].map(([r, h, a]) => ({ id: `${r}-${h}-${a}`, r, h, a, duelo: FOCO.includes(h) && FOCO.includes(a) }));
 
 const RODADAS = [...new Set(JOGOS.map((j) => j.r))].sort((a, b) => a - b);
@@ -230,10 +231,10 @@ async function escudoImg(code, usarPng) {
 
 async function desenharCard({ tabela, oficiais, verPor, usarPng, link }) {
   try { if (document.fonts && document.fonts.ready) await document.fonts.ready; } catch (e) {}
-  const L = 90, GAP = 14, M = 40, W = 1080;
-  const CW = (W - 2 * M - L - 3 * GAP) / 4;
-  const TOPO = 250, RH = 76;
-  const H = TOPO + RODADAS.length * RH + 230;
+  const L = 70, GAP = 10, M = 36, W = 1080;
+  const CW = (W - 2 * M - L - (FOCO.length - 1) * GAP) / FOCO.length;
+  const TOPO = 236, RH = 72;
+  const H = TOPO + RODADAS.length * RH + 216;
   const cv = document.createElement("canvas");
   cv.width = W; cv.height = H;
   const c = cv.getContext("2d");
@@ -260,10 +261,10 @@ async function desenharCard({ tabela, oficiais, verPor, usarPng, link }) {
   ordem.forEach((t, i) => {
     const x = colX(i) + CW / 2;
     if (imgs[t.code]) {
-      const im = imgs[t.code], h = 56, w = im.width ? (im.width / im.height) * h : 48;
-      c.drawImage(im, x - w / 2, 142, w, h);
+      const im = imgs[t.code], h = 48, w = im.width ? (im.width / im.height) * h : 41;
+      c.drawImage(im, x - w / 2, 148, w, h);
     }
-    cx(t.code, x, 222, fonte(28, "700"), "#16181d");
+    cx(t.code, x, 214, fonte(22, "700"), "#16181d");
   });
 
   RODADAS.forEach((r, ri) => {
@@ -278,24 +279,24 @@ async function desenharCard({ tabela, oficiais, verPor, usarPng, link }) {
           : (g.casa ? of.gh : of.ga) === (g.casa ? of.ga : of.gh) ? "E" : "D")
         : verPor(g.j, code);
       caixa(x, y, CW, RH - 8, 10, of ? "#f3f4f1" : "#ffffff");
-      cx(`${g.adv} ${g.casa ? "casa" : "fora"}`, x + CW / 2, y + 26, fonte(20, "600"), "#6b7076");
+      cx(`${g.adv} ${g.casa ? "casa" : "fora"}`, x + CW / 2, y + 24, fonte(16, "600"), "#6b7076");
       const txt = of ? `${g.casa ? of.gh : of.ga}–${g.casa ? of.ga : of.gh}` : (res || "·");
-      cx(txt, x + CW / 2, y + 58, fonte(of ? 28 : 32, "700"), res ? RES_COR[res] : "#c9ccc5");
+      cx(txt, x + CW / 2, y + 55, fonte(of ? 24 : 28, "700"), res ? RES_COR[res] : "#c9ccc5");
     });
   });
 
   const yb = TOPO + RODADAS.length * RH + 16;
   ordem.forEach((t, i) => {
-    const cai = tabela.indexOf(t) >= 2, x = colX(i);
-    caixa(x, yb, CW, 118, 12, cai ? "#f6ddd9" : "#e4eee6");
+    const cai = tabela.indexOf(t) >= FOCO.length - CAEM, x = colX(i);
+    caixa(x, yb, CW, 104, 10, cai ? "#f6ddd9" : "#e4eee6");
     if (imgs[t.code]) {
-      const im = imgs[t.code], h = 40, w = im.width ? (im.width / im.height) * h : 34;
-      c.drawImage(im, x + CW / 2 - w / 2, yb + 10, w, h);
+      const im = imgs[t.code], h = 36, w = im.width ? (im.width / im.height) * h : 31;
+      c.drawImage(im, x + CW / 2 - w / 2, yb + 8, w, h);
     }
-    cx(String(t.fim), x + CW / 2, yb + 92, fonte(42, "700"), cai ? "#8f2820" : "#16181d");
+    cx(String(t.fim), x + CW / 2, yb + 84, fonte(34, "700"), cai ? "#8f2820" : "#16181d");
   });
-  cx(`Caem: ${tabela[2].nome} e ${tabela[3].nome}`, M, yb + 158, fonte(28, "700"), "#16181d", "left");
-  cx(link, M, yb + 196, fonte(22), "#8a8f96", "left");
+  cx(`Caem: ${tabela[tabela.length - 2].nome} e ${tabela[tabela.length - 1].nome}`, M, yb + 146, fonte(26, "700"), "#16181d", "left");
+  cx(link, M, yb + 182, fonte(20), "#8a8f96", "left");
   return cv;
 }
 
@@ -407,7 +408,7 @@ function App() {
           const A = st[a], B = st[b];
           return B.pts - A.pts || B.v - A.v || (B.gp - B.gc) - (A.gp - A.gc) || B.gp - A.gp || Math.random() - 0.5;
         });
-        queda[ord[2]]++; queda[ord[3]]++;
+        for (let k = FOCO.length - CAEM; k < FOCO.length; k++) queda[ord[k]]++;
         FOCO.forEach((c) => (soma[c] += st[c].pts));
       }
       if (feito < NS) requestAnimationFrame(passo);
@@ -436,7 +437,7 @@ function App() {
 
   const texto = tabela.length
     ? `Briga contra o rebaixamento: ${tabela.map((t) => `${t.code} ${t.fim}`).join(" · ")}. ` +
-      `Na minha conta caem ${tabela[2].nome} e ${tabela[3].nome}. Faça a sua:`
+      `Na minha conta caem ${tabela[tabela.length - 2].nome} e ${tabela[tabela.length - 1].nome}. Faça a sua:`
     : "";
 
   const enviar = async () => {
@@ -454,6 +455,12 @@ function App() {
     a.href = img.url; a.download = "quem-cai.png"; a.click();
   };
 
+  const vizinhos = useMemo(() =>
+    Object.values(T)
+      .filter((t) => !FOCO.includes(t.code) && !FORA.includes(t.code))
+      .sort((a, b) => a.pts - b.pts || a.sg - b.sg)
+      .slice(0, 3), [T]);
+
   const problemas = [...erros, ...avisos];
 
   return (
@@ -468,17 +475,16 @@ function App() {
       <header style={S.head}>
         <h1 style={S.h1}>Quem cai</h1>
         <p style={S.sub}>
-          Dois destes quatro descem junto com Chapecoense e Remo. Toque na célula para alternar
+          Dois destes seis descem junto com Chapecoense e Remo. Toque na célula para alternar
           vitória, empate e derrota. Jogos já disputados aparecem com o placar e não mudam.
         </p>
         <div style={S.cols}>
           <span style={S.rlabel} />
           {FOCO.map((c) => (
             <div key={c} style={S.colHead}>
-              <Escudo code={c} size={26} />
+              <Escudo code={c} size={22} />
               <span style={S.colName}>{c}</span>
-              <span style={S.colPts} className="num">{T[c].pts} pts</span>
-              <i style={{ ...S.flag, background: COR[c] }} />
+              <span style={S.colPts} className="num">{T[c].pts}</span>
             </div>
           ))}
         </div>
@@ -504,7 +510,7 @@ function App() {
                 const sinal = meu > dele ? "V" : meu === dele ? "E" : "D";
                 return (
                   <div key={c} style={{ ...S.cel, ...S.celFixa }} title={`${NOMES[g.adv]} — resultado oficial`}>
-                    <span style={S.advLinha}><Escudo code={g.adv} size={15} /><span style={S.adv}>{g.adv}</span></span>
+                    <span style={S.advLinha}><Escudo code={g.adv} size={13} /><span style={S.adv}>{g.adv}</span></span>
                     <span style={S.local}>{g.casa ? "🏠" : "✈️"}</span>
                     <span style={{ ...S.placar, color: RES_COR[sinal] }} className="num">{meu}–{dele}</span>
                   </div>
@@ -515,7 +521,7 @@ function App() {
                 <button key={c} style={{ ...S.cel, borderColor: res ? RES_COR[res] : "#dcdeD8" }}
                   onClick={() => set(g.j, c, CICLO[res])}
                   title={`${g.casa ? "em casa contra" : "fora contra"} ${NOMES[g.adv]}`}>
-                  <span style={S.advLinha}><Escudo code={g.adv} size={15} /><span style={S.adv}>{g.adv}</span></span>
+                  <span style={S.advLinha}><Escudo code={g.adv} size={13} /><span style={S.adv}>{g.adv}</span></span>
                   <span style={S.local}>{g.casa ? "🏠" : "✈️"}{g.j.duelo ? " ·" : ""}</span>
                   <span style={{ ...S.res, color: res ? RES_COR[res] : "#c2c5bf" }}>{res || "·"}</span>
                 </button>
@@ -543,7 +549,7 @@ function App() {
             <div style={S.mcGrid}>
               {FOCO.map((c) => (
                 <div key={c} style={S.mcItem}>
-                  <Escudo code={c} size={20} />
+                  <Escudo code={c} size={18} />
                   <span style={S.mcPts} className="num">{mc[c].pts.toFixed(1)} pts</span>
                   <span style={{ ...S.mcQ, color: mc[c].queda > 0.5 ? "#b3312c" : "#3d4148" }} className="num">
                     {(mc[c].queda * 100).toFixed(0)}% cai
@@ -556,8 +562,8 @@ function App() {
         </div>
 
         <p style={S.aviso}>
-          Quem vem logo acima: Corinthians com 32 pontos, Vitória e São Paulo com 33.
-          Se algum deles despencar, a conta de quatro times deixa de valer.
+          Quem vem logo acima: {vizinhos.map((t) => `${t.nome} ${t.pts}`).join(", ")}.
+          Se algum deles despencar, a conta de seis times deixa de valer.
         </p>
       </main>
 
@@ -576,12 +582,12 @@ function App() {
 
       <footer style={S.foot}>
         {tabela.map((t, i) => {
-          const cai = i >= 2;
+          const cai = i >= FOCO.length - CAEM;
           const emp = (i > 0 && tabela[i - 1].fim === t.fim && tabela[i - 1].vFim === t.vFim) ||
-            (i < 3 && tabela[i + 1].fim === t.fim && tabela[i + 1].vFim === t.vFim);
+            (i < tabela.length - 1 && tabela[i + 1].fim === t.fim && tabela[i + 1].vFim === t.vFim);
           return (
             <div key={t.code} style={{ ...S.fItem, background: cai ? "#fbecea" : "#eef3ee" }}>
-              <Escudo code={t.code} size={20} />
+              <Escudo code={t.code} size={18} />
               <span style={S.fPts} className="num">{t.fim}</span>
               <span style={S.fSub} className="num">{t.feitos}/{t.total}{emp ? " · saldo" : ""}</span>
             </div>
@@ -594,27 +600,26 @@ function App() {
 
 const S = {
   shell: { minHeight: "100vh", background: "#eceee8", color: "#16181d", display: "flex", flexDirection: "column", fontFamily: "'Barlow',system-ui,-apple-system,sans-serif", fontSize: 15 },
-  head: { position: "sticky", top: 0, zIndex: 5, background: "#fff", borderBottom: "1px solid #d5d7d1", padding: "14px 10px 0" },
+  head: { position: "sticky", top: 0, zIndex: 5, background: "#fff", borderBottom: "1px solid #d5d7d1", padding: "14px 8px 0" },
   h1: { margin: 0, fontSize: 25, fontWeight: 700, letterSpacing: "-.3px" },
   sub: { margin: "6px 0 12px", fontSize: 13, lineHeight: 1.4, color: "#6b7076", maxWidth: "48ch" },
-  cols: { display: "grid", gridTemplateColumns: "30px repeat(4,1fr)", gap: 5 },
+  cols: { display: "grid", gridTemplateColumns: "24px repeat(6,1fr)", gap: 3 },
   colHead: { display: "flex", flexDirection: "column", alignItems: "center", gap: 2, paddingBottom: 6 },
-  flag: { width: 22, height: 3, borderRadius: 2, display: "block", marginTop: 2 },
-  colName: { fontSize: 12.5, fontWeight: 700, letterSpacing: ".5px" },
-  colPts: { fontSize: 11.5, color: "#6b7076" },
+    colName: { fontSize: 11, fontWeight: 700, letterSpacing: ".3px" },
+  colPts: { fontSize: 11, color: "#6b7076" },
 
-  main: { flex: 1, padding: "8px 10px 150px", maxWidth: 560, width: "100%", margin: "0 auto" },
+  main: { flex: 1, padding: "8px 8px 146px", maxWidth: 560, width: "100%", margin: "0 auto" },
   erro: { background: "#fff6e5", border: "1px solid #e8c07d", borderRadius: 8, padding: "9px 11px", fontSize: 12.5, lineHeight: 1.5, marginBottom: 10 },
-  linha: { display: "grid", gridTemplateColumns: "30px repeat(4,1fr)", gap: 5, marginBottom: 5, alignItems: "stretch" },
-  rlabel: { fontSize: 12, fontWeight: 600, color: "#6b7076", display: "flex", alignItems: "center", justifyContent: "flex-end", paddingRight: 2 },
-  vazio: { background: "#e3e5df", borderRadius: 7, display: "grid", placeItems: "center", color: "#b9bcb6", fontSize: 13 },
-  cel: { background: "#fff", border: "2px solid #dcdeD8", borderRadius: 7, padding: "5px 2px 4px", display: "flex", flexDirection: "column", alignItems: "center", lineHeight: 1.1 },
+  linha: { display: "grid", gridTemplateColumns: "24px repeat(6,1fr)", gap: 3, marginBottom: 5, alignItems: "stretch" },
+  rlabel: { fontSize: 11, fontWeight: 600, color: "#6b7076", display: "flex", alignItems: "center", justifyContent: "flex-end", paddingRight: 2 },
+  vazio: { background: "#e3e5df", borderRadius: 6, display: "grid", placeItems: "center", color: "#b9bcb6", fontSize: 13 },
+  cel: { background: "#fff", border: "2px solid #dcdeD8", borderRadius: 6, padding: "4px 1px 3px", display: "flex", flexDirection: "column", alignItems: "center", lineHeight: 1.1 },
   celFixa: { background: "#f3f4f1", borderStyle: "dashed", borderColor: "#c9ccc5", cursor: "default" },
-  advLinha: { display: "flex", alignItems: "center", gap: 3 },
-  adv: { fontSize: 12, fontWeight: 600, letterSpacing: ".3px" },
-  local: { fontSize: 11, marginTop: 2, letterSpacing: ".5px" },
-  res: { fontSize: 18, fontWeight: 700, marginTop: 1 },
-  placar: { fontSize: 15, fontWeight: 700, marginTop: 2 },
+  advLinha: { display: "flex", alignItems: "center", gap: 2 },
+  adv: { fontSize: 9.5, fontWeight: 700, letterSpacing: ".2px" },
+  local: { fontSize: 9, marginTop: 1 },
+  res: { fontSize: 16, fontWeight: 700, marginTop: 1 },
+  placar: { fontSize: 13, fontWeight: 700, marginTop: 2 },
 
   share: { width: "100%", marginTop: 14, background: "#16181d", color: "#fff", borderRadius: 8, padding: "13px", fontSize: 16, fontWeight: 600 },
   acoes: { display: "flex", gap: 8, marginTop: 8 },
@@ -628,19 +633,18 @@ const S = {
 
   blocoMc: { marginTop: 14, background: "#fff", border: "1px solid #d5d7d1", borderRadius: 10, padding: 12 },
   mcBtn: { width: "100%", background: "#fff", border: "1px solid #16181d", color: "#16181d", borderRadius: 8, padding: "11px", fontSize: 15, fontWeight: 600 },
-  mcGrid: { display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 6, marginTop: 10 },
+  mcGrid: { display: "grid", gridTemplateColumns: "repeat(6,1fr)", gap: 4, marginTop: 10 },
   mcItem: { display: "flex", flexDirection: "column", alignItems: "center", gap: 2 },
-  mcPts: { fontSize: 12, color: "#6b7076" },
-  mcQ: { fontSize: 14, fontWeight: 700 },
+  mcPts: { fontSize: 10.5, color: "#6b7076" },
+  mcQ: { fontSize: 12.5, fontWeight: 700 },
   mcNota: { margin: "9px 0 0", fontSize: 11.5, color: "#8a8f96", lineHeight: 1.4 },
   aviso: { marginTop: 14, fontSize: 12, lineHeight: 1.5, color: "#8a8f96", maxWidth: "52ch" },
 
-  foot: { position: "fixed", left: 0, right: 0, bottom: 0, background: "#fff", borderTop: "1px solid #d5d7d1", padding: "9px 10px calc(9px + env(safe-area-inset-bottom))", display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 6, maxWidth: 560, margin: "0 auto" },
-  fItem: { borderRadius: 8, padding: "7px 4px", display: "flex", flexDirection: "column", alignItems: "center", gap: 2 },
-  fPts: { fontSize: 20, fontWeight: 700, lineHeight: 1 },
-  fSub: { fontSize: 10, color: "#8a8f96" },
+  foot: { position: "fixed", left: 0, right: 0, bottom: 0, background: "#fff", borderTop: "1px solid #d5d7d1", padding: "8px 8px calc(9px + env(safe-area-inset-bottom))", display: "grid", gridTemplateColumns: "repeat(6,1fr)", gap: 4, maxWidth: 560, margin: "0 auto" },
+  fItem: { borderRadius: 7, padding: "6px 2px", display: "flex", flexDirection: "column", alignItems: "center", gap: 2 },
+  fPts: { fontSize: 17, fontWeight: 700, lineHeight: 1 },
+  fSub: { fontSize: 9, color: "#8a8f96" },
 };
-
 
 ReactDOM.createRoot(document.getElementById("root")).render(<App />);
 </script>
