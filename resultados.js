@@ -29,6 +29,8 @@ window.RESULTADOS = `
    28,VAS,CTB,5,0
    28,SAO,INT,1,0
    28,GRE,PAL,0,0
+   28,VIT,CRU,1,3
+   28,COR,FLU,1,3
 `;
 
 /* Opcional: em vez de editar a lista acima, você pode publicar uma
