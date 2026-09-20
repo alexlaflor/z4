@@ -27,7 +27,7 @@
 window.RESULTADOS = `
    28,MIR,BOT,2,0
    28,VAS,CTB,5,0
-   28,SÃO,INT,1,0
+   28,SAO,INT,1,0
 `;
 
 /* Opcional: em vez de editar a lista acima, você pode publicar uma
