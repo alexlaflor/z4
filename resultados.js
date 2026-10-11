@@ -36,6 +36,7 @@ window.RESULTADOS = `
 29,VIT,CHA,4,0
 29,RBB,MIR,1,1
 29,BOT,VAS,1,2
+30,VAS,REM,0,0
 `;
 
 /* Opcional: em vez de editar a lista acima, você pode publicar uma
