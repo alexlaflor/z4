@@ -41,6 +41,7 @@ window.RESULTADOS = `
 30,GRE,INT,1,1
 30,PAL,COR,4,1
 30,BAH,MIR,1,0
+30,CTB,BOT,1,1
 `;
 
 /* Opcional: em vez de editar a lista acima, você pode publicar uma
