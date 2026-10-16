@@ -1,6 +1,6 @@
 # Quem cai — Brasileirão 2026
 
-Simulador da briga contra o rebaixamento entre Vitória, Botafogo, Vasco, Mirassol, Corinthians, Internacional e Grêmio.
+Simulador da briga contra o rebaixamento entre Coritiba, Vitória, Botafogo, Vasco, Mirassol, Corinthians, Internacional e Grêmio.
 
 ## Arquivos
 
