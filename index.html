@@ -473,11 +473,6 @@ function App() {
       `}</style>
 
       <header style={S.head}>
-        <h1 style={S.h1}>Quem cai</h1>
-        <p style={S.sub}>
-          Dois destes oito descem junto com Chapecoense e Remo. Toque na célula para alternar
-          vitória, empate e derrota. Jogos já disputados aparecem com o placar e não mudam.
-        </p>
         <div style={S.cols}>
           <span style={S.rlabel} />
           {FOCO.map((c) => (
@@ -600,9 +595,7 @@ function App() {
 
 const S = {
   shell: { minHeight: "100vh", background: "#eceee8", color: "#16181d", display: "flex", flexDirection: "column", fontFamily: "'Barlow',system-ui,-apple-system,sans-serif", fontSize: 15 },
-  head: { position: "sticky", top: 0, zIndex: 5, background: "#fff", borderBottom: "1px solid #d5d7d1", padding: "14px 8px 0" },
-  h1: { margin: 0, fontSize: 25, fontWeight: 700, letterSpacing: "-.3px" },
-  sub: { margin: "6px 0 12px", fontSize: 13, lineHeight: 1.4, color: "#6b7076", maxWidth: "48ch" },
+  head: { position: "sticky", top: 0, zIndex: 5, background: "#fff", borderBottom: "1px solid #d5d7d1", padding: "10px 8px 0" },
   cols: { display: "grid", gridTemplateColumns: "19px repeat(8,1fr)", gap: 2 },
   colHead: { display: "flex", flexDirection: "column", alignItems: "center", gap: 2, paddingBottom: 6 },
     colName: { fontSize: 9, fontWeight: 700, letterSpacing: 0 },
