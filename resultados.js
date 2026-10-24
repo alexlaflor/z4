@@ -52,6 +52,7 @@ window.RESULTADOS = `
 32,INT,BOT,3,0
 32,VIT,CAP,1,1
 32,MIR,SAO,1,1
+32,VAS,COR,3,2
 `;
 
 /* Opcional: em vez de editar a lista acima, você pode publicar uma
