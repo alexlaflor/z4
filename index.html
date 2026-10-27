@@ -198,6 +198,9 @@ const FACT = [1]; for (let i = 1; i < 12; i++) FACT[i] = FACT[i - 1] * i;
 const pk = (l, k) => (Math.exp(-l) * Math.pow(l, k)) / FACT[k];
 function rp(l) { const L = Math.exp(-l); let k = 0, p = 1; do { k++; p *= Math.random(); } while (p > L); return k - 1; }
 const CICLO = { undefined: "V", V: "E", E: "D", D: undefined };
+const risco = (d) => (d.quedaP === null ? d.quedaH : d.quedaP);
+const pct = (v) => (v <= 0 ? "–" : v < 0.005 ? "<1%" : v > 0.995 ? "100%" : `${(v * 100).toFixed(0)}%`);
+const corRisco = (v) => (v > 0.5 ? "#b3312c" : v > 0.2 ? "#b06a1f" : v > 0.02 ? "#3d4148" : "#8a8f96");
 const RES_COR = { V: "#15803d", E: "#8a8f96", D: "#b3312c" };
 
 
@@ -380,40 +383,55 @@ function App() {
     setPicks(n); setMc(null);
   };
 
+  /* Um cenário: sorteia os jogos pendentes e acumula quem terminou no Z2.
+     usarPicks = false ignora os palpites e dá a foto de hoje.          */
+  const cenario = (usarPicks, acc) => {
+    const st = {};
+    FOCO.forEach((c) => (st[c] = { pts: T[c].pts, v: T[c].v, gp: T[c].gp, gc: T[c].gc }));
+    pendentes.forEach((j) => {
+      const [lh, la] = lam(j.h, j.a);
+      let x, y, fix = usarPicks ? picks[j.id] : undefined, n = 0;
+      do {
+        x = rp(lh); y = rp(la); n++;
+        if (!fix) break;
+        const r = x > y ? "V" : x === y ? "E" : "D";
+        if (r === fix) break;
+      } while (n < 60);
+      if (fix && n >= 60) { x = fix === "V" ? 1 : 0; y = fix === "D" ? 1 : 0; }
+      if (st[j.h]) { const o = st[j.h]; o.gp += x; o.gc += y; if (x > y) { o.pts += 3; o.v++; } else if (x === y) o.pts++; }
+      if (st[j.a]) { const o = st[j.a]; o.gp += y; o.gc += x; if (y > x) { o.pts += 3; o.v++; } else if (x === y) o.pts++; }
+    });
+    const ord = FOCO.slice().sort((a, b) => {
+      const A = st[a], B = st[b];
+      return B.pts - A.pts || B.v - A.v || (B.gp - B.gc) - (A.gp - A.gc) || B.gp - A.gp || Math.random() - 0.5;
+    });
+    for (let k = FOCO.length - CAEM; k < FOCO.length; k++) acc.queda[ord[k]]++;
+    FOCO.forEach((c) => (acc.soma[c] += st[c].pts));
+  };
+
   const simular = () => {
     if (rodando) return;
     setRodando(true); parar.current = false;
-    const NS = 10000, queda = {}, soma = {};
-    FOCO.forEach((c) => { queda[c] = 0; soma[c] = 0; });
+    const NS = 10000;
+    const temPicks = pendentes.some((j) => picks[j.id]);
+    const zerar = () => { const a = { queda: {}, soma: {} }; FOCO.forEach((c) => { a.queda[c] = 0; a.soma[c] = 0; }); return a; };
+    const hoje = zerar(), comPicks = temPicks ? zerar() : null;
     let feito = 0;
     const passo = () => {
       if (parar.current) { setRodando(false); return; }
-      for (let s = 0; s < 500 && feito < NS; s++, feito++) {
-        const st = {};
-        FOCO.forEach((c) => (st[c] = { pts: T[c].pts, v: T[c].v, gp: T[c].gp, gc: T[c].gc }));
-        pendentes.forEach((j) => {
-          const [lh, la] = lam(j.h, j.a);
-          let x, y, fix = picks[j.id], n = 0;
-          do {
-            x = rp(lh); y = rp(la); n++;
-            if (!fix) break;
-            const r = x > y ? "V" : x === y ? "E" : "D";
-            if (r === fix) break;
-          } while (n < 60);
-          if (fix && n >= 60) { x = fix === "V" ? 1 : 0; y = fix === "D" ? 1 : 0; }
-          if (st[j.h]) { const o = st[j.h]; o.gp += x; o.gc += y; if (x > y) { o.pts += 3; o.v++; } else if (x === y) o.pts++; }
-          if (st[j.a]) { const o = st[j.a]; o.gp += y; o.gc += x; if (y > x) { o.pts += 3; o.v++; } else if (x === y) o.pts++; }
-        });
-        const ord = FOCO.slice().sort((a, b) => {
-          const A = st[a], B = st[b];
-          return B.pts - A.pts || B.v - A.v || (B.gp - B.gc) - (A.gp - A.gc) || B.gp - A.gp || Math.random() - 0.5;
-        });
-        for (let k = FOCO.length - CAEM; k < FOCO.length; k++) queda[ord[k]]++;
-        FOCO.forEach((c) => (soma[c] += st[c].pts));
+      const lote = temPicks ? 250 : 500;
+      for (let s = 0; s < lote && feito < NS; s++, feito++) {
+        cenario(false, hoje);
+        if (comPicks) cenario(true, comPicks);
       }
       if (feito < NS) requestAnimationFrame(passo);
       else {
-        const r = {}; FOCO.forEach((c) => (r[c] = { queda: queda[c] / NS, pts: soma[c] / NS }));
+        const r = { temPicks, time: {} };
+        FOCO.forEach((c) => (r.time[c] = {
+          quedaH: hoje.queda[c] / NS, ptsH: hoje.soma[c] / NS,
+          quedaP: comPicks ? comPicks.queda[c] / NS : null,
+          ptsP: comPicks ? comPicks.soma[c] / NS : null,
+        }));
         setMc(r); setRodando(false);
       }
     };
@@ -473,15 +491,17 @@ function App() {
       `}</style>
 
       <header style={S.head}>
-        <div style={S.cols}>
-          <span style={S.rlabel} />
-          {FOCO.map((c) => (
-            <div key={c} style={S.colHead}>
-              <Escudo code={c} size={18} />
-              <span style={S.colName}>{c}</span>
-              <span style={S.colPts} className="num">{T[c].pts}</span>
-            </div>
-          ))}
+        <div style={S.faixa}>
+          <div style={S.cols}>
+            <span style={S.rlabel} />
+            {FOCO.map((c) => (
+              <div key={c} style={S.colHead}>
+                <Escudo code={c} size={18} />
+                <span style={S.colName}>{c}</span>
+                <span style={S.colPts} className="num">{T[c].pts}</span>
+              </div>
+            ))}
+          </div>
         </div>
       </header>
 
@@ -541,19 +561,41 @@ function App() {
             {rodando ? "Simulando…" : "Rodar 10 mil cenários"}
           </button>
           {mc && (
-            <div style={S.mcGrid}>
-              {FOCO.map((c) => (
-                <div key={c} style={S.mcItem}>
-                  <Escudo code={c} size={16} />
-                  <span style={S.mcPts} className="num">{mc[c].pts.toFixed(1)} pts</span>
-                  <span style={{ ...S.mcQ, color: mc[c].queda > 0.5 ? "#b3312c" : "#3d4148" }} className="num">
-                    {(mc[c].queda * 100).toFixed(0)}% cai
-                  </span>
-                </div>
-              ))}
+            <div style={S.mcLista}>
+              <div style={S.mcCab}>
+                <span style={{ width: 18, flexShrink: 0 }} />
+                <span style={{ flex: 1 }} />
+                <span style={S.mcCol}>pontos</span>
+                <span style={S.mcCol}>hoje</span>
+                {mc.temPicks && <span style={S.mcCol}>palpites</span>}
+              </div>
+              {FOCO.slice()
+                .sort((a, b) => risco(mc.time[b]) - risco(mc.time[a]))
+                .map((c) => {
+                  const d = mc.time[c];
+                  return (
+                    <div key={c} style={S.mcLinha}>
+                      <Escudo code={c} size={18} />
+                      <span style={S.mcNome}>{c}</span>
+                      <span style={S.mcCol} className="num">{(d.ptsP ?? d.ptsH).toFixed(1)}</span>
+                      <span style={{ ...S.mcCol, ...S.mcPct, color: corRisco(d.quedaH) }} className="num">
+                        {pct(d.quedaH)}
+                      </span>
+                      {mc.temPicks && (
+                        <span style={{ ...S.mcCol, ...S.mcPct, color: corRisco(d.quedaP) }} className="num">
+                          {pct(d.quedaP)}
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
             </div>
           )}
-          <p style={S.mcNota}>A simulação preenche só os jogos em branco e mantém os seus palpites.</p>
+          <p style={S.mcNota}>
+            {mc && mc.temPicks
+              ? "“hoje” é a chance de queda só com os jogos já disputados; “palpites” mantém o que você marcou e sorteia o resto."
+              : "A simulação preenche só os jogos em branco. Marque palpites na grade para ver a segunda coluna, com eles mantidos."}
+          </p>
         </div>
 
         <p style={S.aviso}>
@@ -596,6 +638,7 @@ function App() {
 const S = {
   shell: { minHeight: "100vh", background: "#eceee8", color: "#16181d", display: "flex", flexDirection: "column", fontFamily: "'Barlow',system-ui,-apple-system,sans-serif", fontSize: 15 },
   head: { position: "sticky", top: 0, zIndex: 5, background: "#fff", borderBottom: "1px solid #d5d7d1", padding: "10px 8px 0" },
+  faixa: { maxWidth: 544, margin: "0 auto" },
   cols: { display: "grid", gridTemplateColumns: "19px repeat(8,1fr)", gap: 2 },
   colHead: { display: "flex", flexDirection: "column", alignItems: "center", gap: 2, paddingBottom: 6 },
     colName: { fontSize: 9, fontWeight: 700, letterSpacing: 0 },
@@ -626,10 +669,12 @@ const S = {
 
   blocoMc: { marginTop: 14, background: "#fff", border: "1px solid #d5d7d1", borderRadius: 10, padding: 12 },
   mcBtn: { width: "100%", background: "#fff", border: "1px solid #16181d", color: "#16181d", borderRadius: 8, padding: "11px", fontSize: 15, fontWeight: 600 },
-  mcGrid: { display: "grid", gridTemplateColumns: "repeat(8,1fr)", gap: 3, marginTop: 10 },
-  mcItem: { display: "flex", flexDirection: "column", alignItems: "center", gap: 2 },
-  mcPts: { fontSize: 9, color: "#6b7076" },
-  mcQ: { fontSize: 11, fontWeight: 700 },
+  mcLista: { marginTop: 10 },
+  mcCab: { display: "flex", alignItems: "center", gap: 6, padding: "0 2px 5px", fontSize: 10, color: "#8a8f96", fontWeight: 600 },
+  mcLinha: { display: "flex", alignItems: "center", gap: 6, padding: "5px 2px", borderTop: "1px solid #eceee8" },
+  mcNome: { flex: 1, fontSize: 12.5, fontWeight: 700, letterSpacing: ".2px" },
+  mcCol: { width: 52, textAlign: "right", fontSize: 11, flexShrink: 0 },
+  mcPct: { fontSize: 13, fontWeight: 700 },
   mcNota: { margin: "9px 0 0", fontSize: 11.5, color: "#8a8f96", lineHeight: 1.4 },
   aviso: { marginTop: 14, fontSize: 12, lineHeight: 1.5, color: "#8a8f96", maxWidth: "52ch" },
 
