@@ -124,13 +124,20 @@ function construir(oficiais) {
     t.pts = t.v * 3 + t.e; t.sg = t.gp - t.gc;
     if (t.j > 38) avisos.push(`${t.nome} está com ${t.j} jogos — algum resultado foi lançado duas vezes.`);
   });
+  /* Fatia do mandante medida, não chutada: parte dos 269 jogos até a 27ª
+     rodada (407 gols de mandante contra 309 de visitante) e vai somando o
+     que for lançado em resultados.js.                                     */
+  let golsCasa = 407, golsFora = 309;
+  Object.values(oficiais).forEach((g) => { golsCasa += g.gh; golsFora += g.ga; });
+  const MANDO = golsCasa / (golsCasa + golsFora);
+
   const LG = Object.values(T).reduce((s, t) => s + t.gp, 0) / Object.values(T).reduce((s, t) => s + t.j, 0);
   const K = 0.8, ATT = {}, DEF = {};
   Object.values(T).forEach((t) => {
     ATT[t.code] = 1 + K * ((t.gp / t.j) / LG - 1);
     DEF[t.code] = 1 + K * ((t.gc / t.j) / LG - 1);
   });
-  return { T, ATT, DEF, LG, K, MANDO: 0.555, HM: 2 * LG * 0.555, AM: 2 * LG * 0.445, avisos };
+  return { T, ATT, DEF, LG, K, MANDO, HM: 2 * LG * MANDO, AM: 2 * LG * (1 - MANDO), avisos };
 }
 
 /* ------------------------------------------------------------------ */
@@ -229,7 +236,7 @@ function Modelo({ T, ATT, DEF, LG, K, MANDO, HM, AM, pendentes, lam, odds, NS })
         </p>
         <div style={S.dl}>
           <Par k="Média de gols da liga" v={`${n3(LG)} por time por jogo`} />
-          <Par k="Fatia do mandante" v={`${n1(MANDO * 100)}% dos gols`} />
+          <Par k="Fatia do mandante" v={`${n1(MANDO * 100)}% dos gols da liga`} />
           <Par k="Base em casa" v={`${n2(HM)} gols esperados`} />
           <Par k="Base fora" v={`${n2(AM)} gols esperados`} />
           <Par k="Regressão à média" v={`K = ${n2(K)}`} />
