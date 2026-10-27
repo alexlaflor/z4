@@ -130,7 +130,7 @@ function construir(oficiais) {
     ATT[t.code] = 1 + K * ((t.gp / t.j) / LG - 1);
     DEF[t.code] = 1 + K * ((t.gc / t.j) / LG - 1);
   });
-  return { T, ATT, DEF, HM: 2 * LG * 0.555, AM: 2 * LG * 0.445, avisos };
+  return { T, ATT, DEF, LG, K, MANDO: 0.555, HM: 2 * LG * 0.555, AM: 2 * LG * 0.445, avisos };
 }
 
 /* ------------------------------------------------------------------ */
@@ -197,6 +197,132 @@ function Escudo({ code, size = 16 }) {
 const FACT = [1]; for (let i = 1; i < 12; i++) FACT[i] = FACT[i - 1] * i;
 const pk = (l, k) => (Math.exp(-l) * Math.pow(l, k)) / FACT[k];
 function rp(l) { const L = Math.exp(-l); let k = 0, p = 1; do { k++; p *= Math.random(); } while (p > L); return k - 1; }
+/* ------------------------------------------------------------------ */
+/*  Aba "Modelo": os parâmetros por trás das probabilidades            */
+/* ------------------------------------------------------------------ */
+const n1 = (v) => v.toFixed(1).replace(".", ",");
+const n2 = (v) => v.toFixed(2).replace(".", ",");
+const n3 = (v) => v.toFixed(3).replace(".", ",");
+
+function Par({ k, v }) {
+  return (
+    <div style={S.par}>
+      <span style={S.parK}>{k}</span>
+      <span style={S.parV} className="num">{v}</span>
+    </div>
+  );
+}
+
+function Modelo({ T, ATT, DEF, LG, K, MANDO, HM, AM, pendentes, lam, odds, NS }) {
+  const [aberto, setAberto] = useState(null);
+  const ordem = FOCO.slice().sort((a, b) => T[b].pts - T[a].pts || T[b].v - T[a].v || T[b].sg - T[a].sg);
+
+  return (
+    <>
+      <div style={S.bloco}>
+        <h2 style={S.h2}>Como a conta é feita</h2>
+        <p style={S.texto}>
+          Cada jogo que falta vira um sorteio de gols. Quantos gols um time faz depende do
+          ataque dele, da defesa do adversário e de quem joga em casa — e os gols saem de uma
+          distribuição de Poisson com essa média. A temporada inteira é sorteada {NS.toLocaleString("pt-BR")} vezes,
+          e a chance de queda é a fatia das vezes em que o time terminou entre os dois últimos destes {FOCO.length}.
+        </p>
+        <div style={S.dl}>
+          <Par k="Média de gols da liga" v={`${n3(LG)} por time por jogo`} />
+          <Par k="Fatia do mandante" v={`${n1(MANDO * 100)}% dos gols`} />
+          <Par k="Base em casa" v={`${n2(HM)} gols esperados`} />
+          <Par k="Base fora" v={`${n2(AM)} gols esperados`} />
+          <Par k="Regressão à média" v={`K = ${n2(K)}`} />
+          <Par k="Cenários por simulação" v={NS.toLocaleString("pt-BR")} />
+          <Par k="Jogos ainda em aberto" v={`${pendentes.length}`} />
+        </div>
+        <p style={S.nota}>
+          Os índices de ataque e defesa são puxados {Math.round((1 - K) * 100)}% na direção de 1,
+          porque uma temporada parcial ainda carrega muita sorte. Índice 1,00 é o time médio da liga;
+          acima de 1 no ataque marca mais que a média, acima de 1 na defesa sofre mais.
+        </p>
+      </div>
+
+      <p style={S.secao}>Por time — toque para abrir os jogos que faltam</p>
+
+      {ordem.map((c) => {
+        const t = T[c];
+        const marc = t.gp / t.j, sofr = t.gc / t.j;
+        const resto = pendentes.filter((j) => j.h === c || j.a === c);
+        const exp = resto.map((j) => {
+          const [lh, la] = lam(j.h, j.a);
+          const casa = j.h === c;
+          const [w, d, l] = odds(j.h, j.a);
+          return {
+            j, casa, adv: casa ? j.a : j.h,
+            meus: casa ? lh : la, dele: casa ? la : lh,
+            v: casa ? w : l, e: d, der: casa ? l : w,
+          };
+        });
+        const ptsEsp = exp.reduce((s, e) => s + e.v * 3 + e.e, 0);
+        const on = aberto === c;
+        return (
+          <div key={c} style={S.cardT}>
+            <button style={S.cardCab} onClick={() => setAberto(on ? null : c)}>
+              <Escudo code={c} size={22} />
+              <span style={S.cardNome}>{t.nome}</span>
+              <span style={S.cardIdx} className="num">
+                <b>{n2(ATT[c])}</b> atq<br />
+                <b>{n2(DEF[c])}</b> def
+              </span>
+              <span style={{ ...S.caret, transform: on ? "rotate(90deg)" : "none" }}>›</span>
+            </button>
+
+            <div style={S.cardLinha}>
+              <Par k="Campanha" v={`${t.pts} pts · ${t.j}J · ${t.v}V ${t.e}E ${t.d}D`} />
+              <Par k="Gols marcados" v={`${t.gp} em ${t.j} → ${n2(marc)} por jogo`} />
+              <Par k="Gols sofridos" v={`${t.gc} em ${t.j} → ${n2(sofr)} por jogo`} />
+              <Par k="Índice de ataque" v={`${n2(marc)} ÷ ${n3(LG)} = ${n2(marc / LG)} → ${n2(ATT[c])}`} />
+              <Par k="Índice de defesa" v={`${n2(sofr)} ÷ ${n3(LG)} = ${n2(sofr / LG)} → ${n2(DEF[c])}`} />
+              <Par k="Jogos restantes" v={`${resto.length}`} />
+              <Par k="Pontos esperados no resto" v={`${n1(ptsEsp)} → ${n1(t.pts + ptsEsp)} no fim`} />
+            </div>
+
+            {on && (
+              <div style={S.jogos}>
+                <div style={S.jCab}>
+                  <span style={{ flex: 1 }}>adversário</span>
+                  <span style={S.jGols}>gols esp.</span>
+                  <span style={S.jPct}>V%</span>
+                  <span style={S.jPct}>E%</span>
+                  <span style={S.jPct}>D%</span>
+                </div>
+                {exp.map((e) => (
+                  <div key={e.j.id} style={S.jLinha}>
+                    <span style={S.jAdv}>
+                      <Escudo code={e.adv} size={14} />
+                      <span>{e.adv}</span>
+                      <span style={S.jLocal}>{e.casa ? "🏠" : "✈️"}</span>
+                      <span style={S.jRod} className="num">{e.j.r}ª</span>
+                    </span>
+                    <span style={S.jGols} className="num">{n2(e.meus)}–{n2(e.dele)}</span>
+                    <span style={{ ...S.jPct, color: "#15803d" }} className="num">{Math.round(e.v * 100)}</span>
+                    <span style={{ ...S.jPct, color: "#8a8f96" }} className="num">{Math.round(e.e * 100)}</span>
+                    <span style={{ ...S.jPct, color: "#b3312c" }} className="num">{Math.round(e.der * 100)}</span>
+                  </div>
+                ))}
+                {exp.length === 0 && <div style={S.jVazio}>Nenhum jogo em aberto.</div>}
+              </div>
+            )}
+          </div>
+        );
+      })}
+
+      <p style={S.nota}>
+        O modelo olha só para gols marcados e sofridos. Não sabe de desfalque, cartão, calendário
+        apertado nem motivação — um time já rebaixado e outro brigando por título entram na conta
+        do mesmo jeito. A força dos adversários também fica congelada no desempenho de hoje.
+      </p>
+    </>
+  );
+}
+
+const NS = 10000;   // cenários por simulação
 const CICLO = { undefined: "V", V: "E", E: "D", D: undefined };
 const risco = (d) => (d.quedaP === null ? d.quedaH : d.quedaP);
 const pct = (v) => (v <= 0 ? "–" : v < 0.005 ? "<1%" : v > 0.995 ? "100%" : `${(v * 100).toFixed(0)}%`);
@@ -320,6 +446,7 @@ function App() {
   const [picks, setPicks] = useState({});
   const [mc, setMc] = useState(null);
   const [rodando, setRodando] = useState(false);
+  const [aba, setAba] = useState("grade");
   const parar = useRef(false);
 
   /* planilha externa, se configurada em resultados.js */
@@ -330,7 +457,7 @@ function App() {
   }, []);
 
   const { jogos: oficiais, erros } = useMemo(() => lerResultados(fonte), [fonte]);
-  const { T, ATT, DEF, HM, AM, avisos } = useMemo(() => construir(oficiais), [oficiais]);
+  const { T, ATT, DEF, LG, K, MANDO, HM, AM, avisos } = useMemo(() => construir(oficiais), [oficiais]);
 
   const lam = (h, a) => [HM * ATT[h] * DEF[a], AM * ATT[a] * DEF[h]];
   const odds = (h, a) => {
@@ -412,7 +539,6 @@ function App() {
   const simular = () => {
     if (rodando) return;
     setRodando(true); parar.current = false;
-    const NS = 10000;
     const temPicks = pendentes.some((j) => picks[j.id]);
     const zerar = () => { const a = { queda: {}, soma: {} }; FOCO.forEach((c) => { a.queda[c] = 0; a.soma[c] = 0; }); return a; };
     const hoje = zerar(), comPicks = temPicks ? zerar() : null;
@@ -492,20 +618,28 @@ function App() {
 
       <header style={S.head}>
         <div style={S.faixa}>
-          <div style={S.cols}>
-            <span style={S.rlabel} />
-            {FOCO.map((c) => (
-              <div key={c} style={S.colHead}>
-                <Escudo code={c} size={18} />
-                <span style={S.colName}>{c}</span>
-                <span style={S.colPts} className="num">{T[c].pts}</span>
-              </div>
+          <div style={S.abas}>
+            {[["grade", "Grade"], ["modelo", "Modelo"]].map(([k, r]) => (
+              <button key={k} onClick={() => setAba(k)}
+                style={{ ...S.aba, ...(aba === k ? S.abaOn : {}) }}>{r}</button>
             ))}
           </div>
+          {aba === "grade" && (
+            <div style={S.cols}>
+              <span style={S.rlabel} />
+              {FOCO.map((c) => (
+                <div key={c} style={S.colHead}>
+                  <Escudo code={c} size={18} />
+                  <span style={S.colName}>{c}</span>
+                  <span style={S.colPts} className="num">{T[c].pts}</span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </header>
 
-      <main style={S.main}>
+      <main style={{ ...S.main, paddingBottom: aba === "grade" ? 146 : 28 }}>
         {problemas.length > 0 && (
           <div style={S.erro}>
             <b>resultados.js precisa de atenção</b>
@@ -513,6 +647,12 @@ function App() {
           </div>
         )}
 
+        {aba === "modelo" && (
+          <Modelo T={T} ATT={ATT} DEF={DEF} LG={LG} K={K} MANDO={MANDO} HM={HM} AM={AM}
+            pendentes={pendentes} lam={lam} odds={odds} NS={NS} />
+        )}
+
+        {aba === "grade" && <>
         {RODADAS.map((r) => (
           <div key={r} style={S.linha}>
             <span style={S.rlabel} className="num">{r}ª</span>
@@ -602,6 +742,7 @@ function App() {
           Quem vem logo acima: {vizinhos.map((t) => `${t.nome} ${t.pts}`).join(", ")}.
           Se algum deles despencar, a conta de oito times deixa de valer.
         </p>
+        </>}
       </main>
 
       {img && (
@@ -617,7 +758,7 @@ function App() {
         </div>
       )}
 
-      <footer style={S.foot}>
+      {aba === "grade" && <footer style={S.foot}>
         {tabela.map((t, i) => {
           const cai = i >= FOCO.length - CAEM;
           const emp = (i > 0 && tabela[i - 1].fim === t.fim && tabela[i - 1].vFim === t.vFim) ||
@@ -630,7 +771,7 @@ function App() {
             </div>
           );
         })}
-      </footer>
+      </footer>}
     </div>
   );
 }
@@ -639,6 +780,36 @@ const S = {
   shell: { minHeight: "100vh", background: "#eceee8", color: "#16181d", display: "flex", flexDirection: "column", fontFamily: "'Barlow',system-ui,-apple-system,sans-serif", fontSize: 15 },
   head: { position: "sticky", top: 0, zIndex: 5, background: "#fff", borderBottom: "1px solid #d5d7d1", padding: "10px 8px 0" },
   faixa: { maxWidth: 544, margin: "0 auto" },
+  abas: { display: "flex", gap: 16, marginBottom: 8 },
+  aba: { fontSize: 15, fontWeight: 600, color: "#8a8f96", padding: "2px 0 7px", borderBottom: "2.5px solid transparent" },
+  abaOn: { color: "#16181d", borderBottom: "2.5px solid #16181d" },
+
+  bloco: { background: "#fff", border: "1px solid #d5d7d1", borderRadius: 10, padding: 13, marginBottom: 14 },
+  h2: { margin: "0 0 6px", fontSize: 16, fontWeight: 700 },
+  texto: { margin: "0 0 11px", fontSize: 13, lineHeight: 1.55, color: "#3d4148" },
+  dl: { borderTop: "1px solid #eceee8" },
+  par: { display: "flex", alignItems: "baseline", gap: 10, padding: "4px 0", borderBottom: "1px solid #f4f5f2" },
+  parK: { flex: 1, fontSize: 12, color: "#6b7076" },
+  parV: { fontSize: 12.5, fontWeight: 600, textAlign: "right" },
+  nota: { margin: "10px 0 0", fontSize: 11.5, lineHeight: 1.5, color: "#8a8f96" },
+  secao: { margin: "0 0 8px", fontSize: 12, fontWeight: 600, color: "#8a8f96" },
+
+  cardT: { background: "#fff", border: "1px solid #d5d7d1", borderRadius: 10, padding: "4px 12px 10px", marginBottom: 8 },
+  cardCab: { display: "flex", alignItems: "center", gap: 9, width: "100%", padding: "8px 0 7px", textAlign: "left" },
+  cardNome: { flex: 1, fontSize: 15, fontWeight: 700 },
+  cardIdx: { fontSize: 10.5, color: "#6b7076", textAlign: "right", lineHeight: 1.3 },
+  caret: { fontSize: 19, color: "#b9bcb6", display: "inline-block", transition: "transform .15s" },
+  cardLinha: { borderTop: "1px solid #eceee8" },
+
+  jogos: { marginTop: 9, paddingTop: 7, borderTop: "1px dashed #d5d7d1" },
+  jCab: { display: "flex", alignItems: "center", gap: 5, fontSize: 10, color: "#8a8f96", fontWeight: 600, paddingBottom: 3 },
+  jLinha: { display: "flex", alignItems: "center", gap: 5, padding: "4px 0", borderTop: "1px solid #f4f5f2" },
+  jAdv: { flex: 1, display: "flex", alignItems: "center", gap: 4, fontSize: 12, fontWeight: 600 },
+  jLocal: { fontSize: 10 },
+  jRod: { fontSize: 10, color: "#8a8f96", fontWeight: 400 },
+  jGols: { width: 62, textAlign: "right", fontSize: 11.5, color: "#3d4148" },
+  jPct: { width: 26, textAlign: "right", fontSize: 11.5, fontWeight: 700 },
+  jVazio: { fontSize: 12, color: "#8a8f96", padding: "4px 0" },
   cols: { display: "grid", gridTemplateColumns: "19px repeat(8,1fr)", gap: 2 },
   colHead: { display: "flex", flexDirection: "column", alignItems: "center", gap: 2, paddingBottom: 6 },
     colName: { fontSize: 9, fontWeight: 700, letterSpacing: 0 },
