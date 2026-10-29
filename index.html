@@ -332,7 +332,9 @@ function Modelo({ T, ATT, DEF, LG, K, MANDO, HM, AM, pendentes, lam, odds, NS })
 const NS = 10000;   // cenários por simulação
 const CICLO = { undefined: "V", V: "E", E: "D", D: undefined };
 const risco = (d) => (d.quedaP === null ? d.quedaH : d.quedaP);
-const pct = (v) => (v <= 0 ? "–" : v < 0.005 ? "<1%" : v > 0.995 ? "100%" : `${(v * 100).toFixed(0)}%`);
+/* Uma casa decimal: com 10 mil cenários o erro da simulação é de ±0,5 ponto
+   perto de 50%, então a segunda casa seria ruído.                          */
+const pct = (v) => (v <= 0 ? "–" : v < 0.0005 ? "<0,1%" : v > 0.9995 ? "100%" : `${n1(v * 100)}%`);
 const corRisco = (v) => (v > 0.5 ? "#b3312c" : v > 0.2 ? "#b06a1f" : v > 0.02 ? "#3d4148" : "#8a8f96");
 const RES_COR = { V: "#15803d", E: "#8a8f96", D: "#b3312c" };
 
@@ -724,7 +726,7 @@ function App() {
                     <div key={c} style={S.mcLinha}>
                       <Escudo code={c} size={18} />
                       <span style={S.mcNome}>{c}</span>
-                      <span style={S.mcCol} className="num">{(d.ptsP ?? d.ptsH).toFixed(1)}</span>
+                      <span style={S.mcCol} className="num">{n1(d.ptsP ?? d.ptsH)}</span>
                       <span style={{ ...S.mcCol, ...S.mcPct, color: corRisco(d.quedaH) }} className="num">
                         {pct(d.quedaH)}
                       </span>
