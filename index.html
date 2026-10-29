@@ -332,6 +332,75 @@ function Modelo({ T, ATT, DEF, LG, K, MANDO, HM, AM, pendentes, lam, odds, NS })
 }
 
 const NS = 10000;   // cenários por simulação
+/* ------------------------------------------------------------------ */
+/*  Aba "Pontuação": quantos pontos salvam                             */
+/* ------------------------------------------------------------------ */
+function Pontuacao({ pnt, rodando, recalcular }) {
+  if (rodando && !pnt) return <p style={S.texto}>Rodando 10 mil cenários…</p>;
+  if (!pnt) return <p style={S.texto}>Sem dados ainda.</p>;
+  const L = pnt.linhas;
+  if (!L.length) return <p style={S.texto}>Poucos cenários para montar a tabela.</p>;
+
+  /* o menor total a partir do qual ninguém mais caiu, e o maior em que
+     a queda ainda foi mais provável que a permanência                 */
+  let salvo = null;
+  for (let i = L.length - 1; i >= 0; i--) {
+    if (L[i].prob < 0.01) salvo = L[i].pts; else break;
+  }
+  let perigo = null;
+  for (const l of L) if (l.prob > 0.5) perigo = l.pts;
+
+  const maxN = Math.max(...L.map((l) => l.n));
+  return (
+    <>
+      <div style={S.bloco}>
+        <h2 style={S.h2}>Quantos pontos salvam</h2>
+        <p style={S.texto}>
+          Em cada um dos {pnt.total.toLocaleString("pt-BR")} cenários, anotei com quantos pontos
+          cada um dos {FOCO.length} times terminou e se ficou entre os dois últimos. A tabela é
+          a conta direta: de todas as vezes em que um time fechou com aquele total, em quantas
+          ele caiu.
+        </p>
+        <div style={S.dl}>
+          {perigo !== null && <Par k="Queda mais provável que não até" v={`${perigo} pontos`} />}
+          {salvo !== null && <Par k="Abaixo de 1% de risco a partir de" v={`${salvo} pontos`} />}
+        </div>
+      </div>
+
+      <div style={S.bloco}>
+        <div style={S.pCab}>
+          <span style={S.pPts}>pontuação</span>
+          <span style={{ flex: 1 }}>chance de rebaixamento</span>
+          <span style={S.pAmo}>amostra</span>
+        </div>
+        {L.map((l) => (
+          <div key={l.pts} style={S.pLinha}>
+            <span style={{ ...S.pPts, ...S.pPtsV }} className="num">{l.pts}</span>
+            <span style={S.pBarra}>
+              <i style={{ ...S.pFill, width: `${Math.max(l.prob * 100, l.prob > 0 ? 1.5 : 0)}%`, background: corRisco(l.prob) }} />
+              <b style={{ ...S.pVal, color: corRisco(l.prob) }} className="num">{pct(l.prob)}</b>
+            </span>
+            <span style={{ ...S.pAmo, opacity: .35 + .65 * (l.n / maxN) }} className="num">
+              {l.n.toLocaleString("pt-BR")}
+            </span>
+          </div>
+        ))}
+        <button style={S.pBtn} onClick={recalcular} disabled={rodando}>
+          {rodando ? "Rodando…" : "Rodar de novo"}
+        </button>
+      </div>
+
+      <p style={S.nota}>
+        “Cair” aqui é terminar entre os dois últimos destes {FOCO.length} times, com Chapecoense
+        e Remo já fora da conta. A linha de corte depende de como os outros sete vão: o mesmo
+        total pode salvar numa temporada e condenar em outra, e é isso que a porcentagem mede.
+        A coluna de amostra mostra quantos cenários sustentam cada linha — as pontas da tabela
+        têm menos, e oscilam mais a cada vez que você roda.
+      </p>
+    </>
+  );
+}
+
 const CICLO = { undefined: "V", V: "E", E: "D", D: undefined };
 const risco = (d) => (d.quedaP === null ? d.quedaH : d.quedaP);
 /* Uma casa decimal: com 10 mil cenários o erro da simulação é de ±0,5 ponto
@@ -459,6 +528,10 @@ function App() {
   const [rodando, setRodando] = useState(false);
   const [aba, setAba] = useState("grade");
   const [ateRod, setAteRod] = useState(BASE_ROD);
+  const [pnt, setPnt] = useState(null);
+  const [rodandoP, setRodandoP] = useState(false);
+  const pararP = useRef(false);
+  const ativoP = useRef(false);
   const parar = useRef(false);
 
   /* planilha externa, se configurada em resultados.js */
@@ -497,6 +570,16 @@ function App() {
   useEffect(() => {
     if (!cortes.includes(ateRod)) setAteRod(Math.max(BASE_ROD, cortes[cortes.length - 1] - 5));
   }, [cortes]);
+
+  /* resultado novo invalida a tabela de pontuação */
+  useEffect(() => { setPnt(null); }, [oficiais]);
+
+  /* a aba Pontuação se calcula sozinha ao abrir; sair dela interrompe */
+  useEffect(() => {
+    if (aba !== "pontuacao") { pararP.current = true; return; }
+    pararP.current = false;
+    if (!pnt) simularPontos();
+  }, [aba, pnt]);
 
   const set = (jogo, timeCol, val) => {
     const doMandante = jogo.h === timeCol ? val : val === "V" ? "D" : val === "D" ? "V" : val;
@@ -559,8 +642,19 @@ function App() {
       const A = st[a], B = st[b];
       return B.pts - A.pts || B.v - A.v || (B.gp - B.gc) - (A.gp - A.gc) || B.gp - A.gp || Math.random() - 0.5;
     });
-    for (let k = FOCO.length - CAEM; k < FOCO.length; k++) acc.queda[ord[k]]++;
-    FOCO.forEach((c) => (acc.soma[c] += st[c].pts));
+    const baixo = new Set();
+    for (let k = FOCO.length - CAEM; k < FOCO.length; k++) { acc.queda[ord[k]]++; baixo.add(ord[k]); }
+    FOCO.forEach((c) => {
+      acc.soma[c] += st[c].pts;
+      /* acc.dist[p] = [quantas vezes um time terminou com p pontos,
+                        quantas dessas ele estava no Z2]               */
+      if (acc.dist) {
+        const p = st[c].pts;
+        if (!acc.dist[p]) acc.dist[p] = [0, 0];
+        acc.dist[p][0]++;
+        if (baixo.has(c)) acc.dist[p][1]++;
+      }
+    });
   };
 
   const simular = () => {
@@ -598,6 +692,39 @@ function App() {
           ptsP: comPicks ? comPicks.soma[c] / NS : null,
         }));
         setMc(r); setRodando(false);
+      }
+    };
+    requestAnimationFrame(passo);
+  };
+
+  /* Aba Pontuação: para cada total de pontos, com que frequência um time
+     que terminou ali acabou entre os dois últimos. Junta os oito times e
+     ignora os palpites — é a pergunta geral "quantos pontos salvam?".  */
+  const simularPontos = () => {
+    /* o guarda é uma ref, não o estado: o efeito que dispara isso pode
+       rodar antes do setRodandoP chegar, e duas contas em paralelo
+       somariam no mesmo acumulador                                     */
+    if (ativoP.current) return;
+    ativoP.current = true; pararP.current = false;
+    setRodandoP(true);
+    const acc = { queda: {}, soma: {}, dist: {} };
+    FOCO.forEach((c) => { acc.queda[c] = 0; acc.soma[c] = 0; });
+    let feito = 0;
+    const passo = () => {
+      if (pararP.current) { ativoP.current = false; setRodandoP(false); return; }
+      for (let s = 0; s < 400 && feito < NS; s++, feito++) cenario(acc, pendentes, false, T, lam);
+      if (feito < NS) requestAnimationFrame(passo);
+      else {
+        let linhas = Object.keys(acc.dist).map(Number).sort((a, b) => a - b)
+          .map((p) => ({ pts: p, n: acc.dist[p][0], caiu: acc.dist[p][1], prob: acc.dist[p][1] / acc.dist[p][0] }))
+          .filter((l) => l.n >= 50);
+        /* corta a cauda de zeros: basta uma linha depois do último risco
+           real para mostrar onde acaba, sem arrastar dez linhas vazias   */
+        let ult = linhas.length - 1;
+        while (ult > 0 && linhas[ult].caiu === 0 && linhas[ult - 1].caiu === 0) ult--;
+        linhas = linhas.slice(0, ult + 1);
+        setPnt({ linhas, total: NS });
+        ativoP.current = false; setRodandoP(false);
       }
     };
     requestAnimationFrame(passo);
@@ -658,7 +785,7 @@ function App() {
       <header style={S.head}>
         <div style={S.faixa}>
           <div style={S.abas}>
-            {[["grade", "Grade"], ["modelo", "Modelo"]].map(([k, r]) => (
+            {[["grade", "Grade"], ["pontuacao", "Pontuação"], ["modelo", "Modelo"]].map(([k, r]) => (
               <button key={k} onClick={() => setAba(k)}
                 style={{ ...S.aba, ...(aba === k ? S.abaOn : {}) }}>{r}</button>
             ))}
@@ -684,6 +811,10 @@ function App() {
             <b>resultados.js precisa de atenção</b>
             {problemas.map((e, i) => <div key={i}>{e}</div>)}
           </div>
+        )}
+
+        {aba === "pontuacao" && (
+          <Pontuacao pnt={pnt} rodando={rodandoP} recalcular={() => { setPnt(null); }} />
         )}
 
         {aba === "modelo" && (
@@ -910,6 +1041,16 @@ const S = {
   mcNome: { flex: 1, fontSize: 12.5, fontWeight: 700, letterSpacing: ".2px" },
   mcCol: { width: 46, textAlign: "right", fontSize: 11, flexShrink: 0 },
   mcPts: { width: 38, textAlign: "right", fontSize: 11, flexShrink: 0 },
+  pCab: { display: "flex", alignItems: "center", gap: 8, fontSize: 10, color: "#8a8f96", fontWeight: 600, paddingBottom: 5 },
+  pLinha: { display: "flex", alignItems: "center", gap: 8, padding: "3px 0", borderTop: "1px solid #f4f5f2" },
+  pPts: { width: 54, flexShrink: 0, fontSize: 10 },
+  pPtsV: { fontSize: 14, fontWeight: 700, textAlign: "right", paddingRight: 6 },
+  pAmo: { width: 46, flexShrink: 0, fontSize: 10, color: "#8a8f96", textAlign: "right" },
+  pBarra: { flex: 1, position: "relative", height: 21, display: "flex", alignItems: "center", background: "#f4f5f2", borderRadius: 4, overflow: "hidden" },
+  pFill: { position: "absolute", left: 0, top: 0, bottom: 0, opacity: .22 },
+  pVal: { position: "relative", fontSize: 12, fontWeight: 700, paddingLeft: 7 },
+  pBtn: { width: "100%", marginTop: 12, background: "#fff", border: "1px solid #16181d", color: "#16181d", borderRadius: 8, padding: "9px", fontSize: 14, fontWeight: 600 },
+
   corte: { display: "flex", alignItems: "center", gap: 8, paddingBottom: 9 },
   corteK: { fontSize: 12.5, color: "#6b7076" },
   sel: { flex: 1, fontSize: 13.5, fontWeight: 600, padding: "7px 8px", borderRadius: 7, border: "1px solid #d5d7d1", background: "#fff", color: "#16181d" },
