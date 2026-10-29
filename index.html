@@ -82,6 +82,7 @@ const JOGOS = [
 ].map(([r, h, a]) => ({ id: `${r}-${h}-${a}`, r, h, a, duelo: FOCO.includes(h) && FOCO.includes(a) }));
 
 const RODADAS = [...new Set(JOGOS.map((j) => j.r))].sort((a, b) => a - b);
+const ULTIMA = Math.max(...RODADAS);
 const grade = {};
 RODADAS.forEach((r) => {
   grade[r] = {};
@@ -456,6 +457,7 @@ function App() {
   const [mc, setMc] = useState(null);
   const [rodando, setRodando] = useState(false);
   const [aba, setAba] = useState("grade");
+  const [ateRod, setAteRod] = useState(ULTIMA);
   const parar = useRef(false);
 
   /* planilha externa, se configurada em resultados.js */
@@ -480,6 +482,19 @@ function App() {
   };
 
   const pendentes = useMemo(() => JOGOS.filter((j) => !oficiais[j.id]), [oficiais]);
+
+  /* Rodadas que o usuário pode escolher como corte. Só as que ainda estão
+     por vir — um jogo atrasado de rodada antiga (Chapecoense x Vasco, da
+     21ª) entra na conta de qualquer corte, mas não vira opção.          */
+  const cortes = useMemo(() => {
+    const jogada = Math.max(0, ...Object.values(oficiais).map((g) => g.r));
+    const rs = [...new Set(pendentes.map((j) => j.r))].filter((r) => r >= jogada).sort((a, b) => a - b);
+    return rs.length ? rs : [ULTIMA];
+  }, [oficiais, pendentes]);
+
+  useEffect(() => {
+    if (!cortes.includes(ateRod)) setAteRod(cortes[cortes.length - 1]);
+  }, [cortes]);
 
   const set = (jogo, timeCol, val) => {
     const doMandante = jogo.h === timeCol ? val : val === "V" ? "D" : val === "D" ? "V" : val;
@@ -521,10 +536,10 @@ function App() {
 
   /* Um cenário: sorteia os jogos pendentes e acumula quem terminou no Z2.
      usarPicks = false ignora os palpites e dá a foto de hoje.          */
-  const cenario = (usarPicks, acc) => {
+  const cenario = (usarPicks, acc, jogos) => {
     const st = {};
     FOCO.forEach((c) => (st[c] = { pts: T[c].pts, v: T[c].v, gp: T[c].gp, gc: T[c].gc }));
-    pendentes.forEach((j) => {
+    jogos.forEach((j) => {
       const [lh, la] = lam(j.h, j.a);
       let x, y, fix = usarPicks ? picks[j.id] : undefined, n = 0;
       do {
@@ -548,7 +563,8 @@ function App() {
   const simular = () => {
     if (rodando) return;
     setRodando(true); parar.current = false;
-    const temPicks = pendentes.some((j) => picks[j.id]);
+    const jogos = pendentes.filter((j) => j.r <= ateRod);
+    const temPicks = jogos.some((j) => picks[j.id]);
     const zerar = () => { const a = { queda: {}, soma: {} }; FOCO.forEach((c) => { a.queda[c] = 0; a.soma[c] = 0; }); return a; };
     const hoje = zerar(), comPicks = temPicks ? zerar() : null;
     let feito = 0;
@@ -556,12 +572,12 @@ function App() {
       if (parar.current) { setRodando(false); return; }
       const lote = temPicks ? 250 : 500;
       for (let s = 0; s < lote && feito < NS; s++, feito++) {
-        cenario(false, hoje);
-        if (comPicks) cenario(true, comPicks);
+        cenario(false, hoje, jogos);
+        if (comPicks) cenario(true, comPicks, jogos);
       }
       if (feito < NS) requestAnimationFrame(passo);
       else {
-        const r = { temPicks, time: {} };
+        const r = { temPicks, ate: ateRod, nJogos: jogos.length, time: {} };
         FOCO.forEach((c) => (r.time[c] = {
           quedaH: hoje.queda[c] / NS, ptsH: hoje.soma[c] / NS,
           quedaP: comPicks ? comPicks.queda[c] / NS : null,
@@ -706,6 +722,14 @@ function App() {
         </div>
 
         <div style={S.blocoMc}>
+          <div style={S.corte}>
+            <span style={S.corteK}>Calcular até a</span>
+            <select value={ateRod} onChange={(e) => { setAteRod(+e.target.value); setMc(null); }} style={S.sel}>
+              {cortes.map((r) => (
+                <option key={r} value={r}>{r}ª rodada{r === ULTIMA ? " (fim)" : ""}</option>
+              ))}
+            </select>
+          </div>
           <button style={S.mcBtn} onClick={simular} disabled={rodando}>
             {rodando ? "Simulando…" : "Rodar 10 mil cenários"}
           </button>
@@ -713,19 +737,26 @@ function App() {
             <div style={S.mcLista}>
               <div style={S.mcCab}>
                 <span style={{ width: 18, flexShrink: 0 }} />
-                <span style={{ flex: 1 }} />
-                <span style={S.mcCol}>pontos</span>
+                <span style={{ flex: 1 }}>clube</span>
+                <span style={S.mcPts}>pontos</span>
+                <span style={S.mcCol}>rod. {mc.ate}</span>
                 <span style={S.mcCol}>hoje</span>
                 {mc.temPicks && <span style={S.mcCol}>palpites</span>}
               </div>
               {FOCO.slice()
-                .sort((a, b) => risco(mc.time[b]) - risco(mc.time[a]))
+                .sort((a, b) => {
+                  const A = mc.time[a], B = mc.time[b];
+                  /* empate no risco (comum quando os palpites já travam o Z2)
+                     desempata pelo risco sem palpites e depois pelos pontos */
+                  return risco(B) - risco(A) || B.quedaH - A.quedaH || (A.ptsP ?? A.ptsH) - (B.ptsP ?? B.ptsH);
+                })
                 .map((c) => {
                   const d = mc.time[c];
                   return (
                     <div key={c} style={S.mcLinha}>
                       <Escudo code={c} size={18} />
                       <span style={S.mcNome}>{c}</span>
+                      <span style={S.mcPts} className="num">{T[c].pts}</span>
                       <span style={S.mcCol} className="num">{n1(d.ptsP ?? d.ptsH)}</span>
                       <span style={{ ...S.mcCol, ...S.mcPct, color: corRisco(d.quedaH) }} className="num">
                         {pct(d.quedaH)}
@@ -741,9 +772,19 @@ function App() {
             </div>
           )}
           <p style={S.mcNota}>
-            {mc && mc.temPicks
-              ? "“hoje” é a chance de queda só com os jogos já disputados; “palpites” mantém o que você marcou e sorteia o resto."
-              : "A simulação preenche só os jogos em branco. Marque palpites na grade para ver a segunda coluna, com eles mantidos."}
+            {mc ? (
+              <>
+                {mc.ate === ULTIMA
+                  ? "“rod. 38” é a pontuação média no fim; “hoje” e “palpites” são a chance de terminar entre os dois últimos."
+                  : `“rod. ${mc.ate}” é a pontuação média na ${mc.ate}ª; “hoje” e “palpites” são a chance de estar entre os dois últimos naquele momento, com ${mc.nJogos} jogos sorteados.`}
+                {" "}
+                {mc.temPicks
+                  ? "“hoje” ignora os seus palpites; “palpites” mantém o que você marcou e sorteia o resto."
+                  : "Marque palpites na grade para ver a quinta coluna, com eles mantidos."}
+              </>
+            ) : (
+              "A simulação preenche só os jogos em branco e mantém os seus palpites."
+            )}
           </p>
         </div>
 
@@ -853,7 +894,11 @@ const S = {
   mcCab: { display: "flex", alignItems: "center", gap: 6, padding: "0 2px 5px", fontSize: 10, color: "#8a8f96", fontWeight: 600 },
   mcLinha: { display: "flex", alignItems: "center", gap: 6, padding: "5px 2px", borderTop: "1px solid #eceee8" },
   mcNome: { flex: 1, fontSize: 12.5, fontWeight: 700, letterSpacing: ".2px" },
-  mcCol: { width: 52, textAlign: "right", fontSize: 11, flexShrink: 0 },
+  mcCol: { width: 46, textAlign: "right", fontSize: 11, flexShrink: 0 },
+  mcPts: { width: 34, textAlign: "right", fontSize: 11, flexShrink: 0 },
+  corte: { display: "flex", alignItems: "center", gap: 8, paddingBottom: 9 },
+  corteK: { fontSize: 12.5, color: "#6b7076" },
+  sel: { flex: 1, fontSize: 13.5, fontWeight: 600, padding: "7px 8px", borderRadius: 7, border: "1px solid #d5d7d1", background: "#fff", color: "#16181d" },
   mcPct: { fontSize: 13, fontWeight: 700 },
   mcNota: { margin: "9px 0 0", fontSize: 11.5, color: "#8a8f96", lineHeight: 1.4 },
   aviso: { marginTop: 14, fontSize: 12, lineHeight: 1.5, color: "#8a8f96", maxWidth: "52ch" },
