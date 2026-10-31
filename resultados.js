@@ -59,6 +59,7 @@ window.RESULTADOS = `
 33,VAS,FLA,1,4
 33,GRE,CAP,2,0
 33,COR,MIR,2,0
+33,CTB,VIT,2,0
 `;
 
 /* Opcional: em vez de editar a lista acima, você pode publicar uma
