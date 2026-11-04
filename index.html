@@ -335,22 +335,49 @@ const NS = 10000;   // cenários por simulação
 /* ------------------------------------------------------------------ */
 /*  Aba "Pontuação": quantos pontos salvam                             */
 /* ------------------------------------------------------------------ */
+/* uma célula: barra de fundo, porcentagem e, bem apagado, quantos
+   cenários sustentam aquela linha                                   */
+function Celula({ d }) {
+  if (!d) return <span style={{ ...S.pBarra, background: "#fafaf8" }} />;
+  return (
+    <span style={S.pBarra}>
+      <i style={{ ...S.pFill, width: `${Math.max(d.prob * 100, d.prob > 0 ? 1.5 : 0)}%`, background: corRisco(d.prob) }} />
+      <b style={{ ...S.pVal, color: corRisco(d.prob) }} className="num">{pct(d.prob)}</b>
+      <span style={S.pAmo} className="num">{d.n.toLocaleString("pt-BR")}</span>
+    </span>
+  );
+}
+
 function Pontuacao({ pnt, rodando, recalcular }) {
   if (rodando && !pnt) return <p style={S.texto}>Rodando 10 mil cenários…</p>;
   if (!pnt) return <p style={S.texto}>Sem dados ainda.</p>;
   const L = pnt.linhas;
   if (!L.length) return <p style={S.texto}>Poucos cenários para montar a tabela.</p>;
 
-  /* o menor total a partir do qual ninguém mais caiu, e o maior em que
-     a queda ainda foi mais provável que a permanência                 */
-  let salvo = null;
-  for (let i = L.length - 1; i >= 0; i--) {
-    if (L[i].prob < 0.01) salvo = L[i].pts; else break;
-  }
-  let perigo = null;
-  for (const l of L) if (l.prob > 0.5) perigo = l.pts;
+  /* o maior total em que a queda ainda foi mais provável que a
+     permanência, e o menor a partir do qual ninguém mais caiu      */
+  const perigo = (lado) => {
+    let r = null;
+    for (const l of L) if (l[lado] && l[lado].prob > 0.5) r = l.pts;
+    return r;
+  };
+  const salvo = (lado) => {
+    let r = null;
+    for (let i = L.length - 1; i >= 0; i--) {
+      const d = L[i][lado];
+      if (!d) continue;
+      if (d.prob < 0.01) r = L[i].pts; else break;
+    }
+    return r;
+  };
+  const dois = (f) => {
+    const a = f("sem"), b = pnt.temPicks ? f("com") : null;
+    if (a === null && b === null) return null;
+    const txt = (v) => (v === null ? "—" : `${v} pts`);
+    return pnt.temPicks ? `${txt(a)}  ·  ${txt(b)}` : txt(a);
+  };
+  const vPerigo = dois(perigo), vSalvo = dois(salvo);
 
-  const maxN = Math.max(...L.map((l) => l.n));
   return (
     <>
       <div style={S.bloco}>
@@ -360,29 +387,28 @@ function Pontuacao({ pnt, rodando, recalcular }) {
           cada um dos {FOCO.length} times terminou e se ficou entre os dois últimos. A tabela é
           a conta direta: de todas as vezes em que um time fechou com aquele total, em quantas
           ele caiu.
+          {pnt.temPicks
+            ? " A primeira coluna sorteia tudo o que falta; a segunda mantém os palpites que você marcou na grade."
+            : " Marque palpites na aba Grade para ver uma segunda coluna, com eles mantidos."}
         </p>
         <div style={S.dl}>
-          {perigo !== null && <Par k="Queda mais provável que não até" v={`${perigo} pontos`} />}
-          {salvo !== null && <Par k="Abaixo de 1% de risco a partir de" v={`${salvo} pontos`} />}
+          {pnt.temPicks && <Par k="" v="sem palpites · com palpites" />}
+          {vPerigo && <Par k="Queda mais provável que não até" v={vPerigo} />}
+          {vSalvo && <Par k="Abaixo de 1% de risco a partir de" v={vSalvo} />}
         </div>
       </div>
 
       <div style={S.bloco}>
         <div style={S.pCab}>
-          <span style={S.pPts}>pontuação</span>
-          <span style={{ flex: 1 }}>chance de rebaixamento</span>
-          <span style={S.pAmo}>amostra</span>
+          <span style={{ ...S.pPts, textAlign: "right", paddingRight: 6 }}>pts</span>
+          <span style={{ flex: 1 }}>{pnt.temPicks ? "sem palpites" : "chance de rebaixamento"}</span>
+          {pnt.temPicks && <span style={{ flex: 1 }}>com palpites</span>}
         </div>
         {L.map((l) => (
           <div key={l.pts} style={S.pLinha}>
             <span style={{ ...S.pPts, ...S.pPtsV }} className="num">{l.pts}</span>
-            <span style={S.pBarra}>
-              <i style={{ ...S.pFill, width: `${Math.max(l.prob * 100, l.prob > 0 ? 1.5 : 0)}%`, background: corRisco(l.prob) }} />
-              <b style={{ ...S.pVal, color: corRisco(l.prob) }} className="num">{pct(l.prob)}</b>
-            </span>
-            <span style={{ ...S.pAmo, opacity: .35 + .65 * (l.n / maxN) }} className="num">
-              {l.n.toLocaleString("pt-BR")}
-            </span>
+            <Celula d={l.sem} />
+            {pnt.temPicks && <Celula d={l.com} />}
           </div>
         ))}
         <button style={S.pBtn} onClick={recalcular} disabled={rodando}>
@@ -394,8 +420,9 @@ function Pontuacao({ pnt, rodando, recalcular }) {
         “Cair” aqui é terminar entre os dois últimos destes {FOCO.length} times, com Chapecoense
         e Remo já fora da conta. A linha de corte depende de como os outros sete vão: o mesmo
         total pode salvar numa temporada e condenar em outra, e é isso que a porcentagem mede.
-        A coluna de amostra mostra quantos cenários sustentam cada linha — as pontas da tabela
-        têm menos, e oscilam mais a cada vez que você roda.
+        O número apagado à direita de cada barra é quantos cenários sustentam aquela linha —
+        as pontas da tabela têm menos, e oscilam mais a cada vez que você roda. Faixas com
+        menos de 50 cenários ficam de fora.
       </p>
     </>
   );
@@ -571,8 +598,8 @@ function App() {
     if (!cortes.includes(ateRod)) setAteRod(Math.max(BASE_ROD, cortes[cortes.length - 1] - 5));
   }, [cortes]);
 
-  /* resultado novo invalida a tabela de pontuação */
-  useEffect(() => { setPnt(null); }, [oficiais]);
+  /* resultado ou palpite novo invalida a tabela de pontuação */
+  useEffect(() => { setPnt(null); }, [oficiais, picks]);
 
   /* a aba Pontuação se calcula sozinha ao abrir; sair dela interrompe */
   useEffect(() => {
@@ -707,23 +734,34 @@ function App() {
     if (ativoP.current) return;
     ativoP.current = true; pararP.current = false;
     setRodandoP(true);
-    const acc = { queda: {}, soma: {}, dist: {} };
-    FOCO.forEach((c) => { acc.queda[c] = 0; acc.soma[c] = 0; });
+    const temPicks = pendentes.some((j) => picks[j.id]);
+    const novo = () => { const a = { queda: {}, soma: {}, dist: {} }; FOCO.forEach((c) => { a.queda[c] = 0; a.soma[c] = 0; }); return a; };
+    const accS = novo(), accC = temPicks ? novo() : null;
     let feito = 0;
     const passo = () => {
       if (pararP.current) { ativoP.current = false; setRodandoP(false); return; }
-      for (let s = 0; s < 400 && feito < NS; s++, feito++) cenario(acc, pendentes, false, T, lam);
+      const lote = temPicks ? 250 : 400;
+      for (let s = 0; s < lote && feito < NS; s++, feito++) {
+        cenario(accS, pendentes, false, T, lam);
+        if (accC) cenario(accC, pendentes, true, T, lam);
+      }
       if (feito < NS) requestAnimationFrame(passo);
       else {
-        let linhas = Object.keys(acc.dist).map(Number).sort((a, b) => a - b)
-          .map((p) => ({ pts: p, n: acc.dist[p][0], caiu: acc.dist[p][1], prob: acc.dist[p][1] / acc.dist[p][0] }))
-          .filter((l) => l.n >= 50);
+        const faixa = (d, p) => (d && d[p] && d[p][0] >= 50
+          ? { n: d[p][0], caiu: d[p][1], prob: d[p][1] / d[p][0] } : null);
+        const pontos = [...new Set([
+          ...Object.keys(accS.dist), ...(accC ? Object.keys(accC.dist) : []),
+        ].map(Number))].sort((a, b) => a - b);
+        let linhas = pontos
+          .map((p) => ({ pts: p, sem: faixa(accS.dist, p), com: faixa(accC && accC.dist, p) }))
+          .filter((l) => l.sem || l.com);
         /* corta a cauda de zeros: basta uma linha depois do último risco
            real para mostrar onde acaba, sem arrastar dez linhas vazias   */
+        const zerada = (l) => (!l.sem || l.sem.caiu === 0) && (!l.com || l.com.caiu === 0);
         let ult = linhas.length - 1;
-        while (ult > 0 && linhas[ult].caiu === 0 && linhas[ult - 1].caiu === 0) ult--;
+        while (ult > 0 && zerada(linhas[ult]) && zerada(linhas[ult - 1])) ult--;
         linhas = linhas.slice(0, ult + 1);
-        setPnt({ linhas, total: NS });
+        setPnt({ linhas, total: NS, temPicks });
         ativoP.current = false; setRodandoP(false);
       }
     };
@@ -1043,10 +1081,10 @@ const S = {
   mcPts: { width: 38, textAlign: "right", fontSize: 11, flexShrink: 0 },
   pCab: { display: "flex", alignItems: "center", gap: 8, fontSize: 10, color: "#8a8f96", fontWeight: 600, paddingBottom: 5 },
   pLinha: { display: "flex", alignItems: "center", gap: 8, padding: "3px 0", borderTop: "1px solid #f4f5f2" },
-  pPts: { width: 54, flexShrink: 0, fontSize: 10 },
+  pPts: { width: 42, flexShrink: 0, fontSize: 10 },
   pPtsV: { fontSize: 14, fontWeight: 700, textAlign: "right", paddingRight: 6 },
-  pAmo: { width: 46, flexShrink: 0, fontSize: 10, color: "#8a8f96", textAlign: "right" },
-  pBarra: { flex: 1, position: "relative", height: 21, display: "flex", alignItems: "center", background: "#f4f5f2", borderRadius: 4, overflow: "hidden" },
+  pAmo: { position: "relative", marginLeft: "auto", paddingRight: 6, fontSize: 9.5, color: "#b0b4ae" },
+  pBarra: { flex: 1, position: "relative", height: 21, display: "flex", alignItems: "center", background: "#f4f5f2", borderRadius: 4, overflow: "hidden", minWidth: 0 },
   pFill: { position: "absolute", left: 0, top: 0, bottom: 0, opacity: .22 },
   pVal: { position: "relative", fontSize: 12, fontWeight: 700, paddingLeft: 7 },
   pBtn: { width: "100%", marginTop: 12, background: "#fff", border: "1px solid #16181d", color: "#16181d", borderRadius: 8, padding: "9px", fontSize: 14, fontWeight: 600 },
