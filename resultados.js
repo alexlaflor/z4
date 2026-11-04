@@ -61,6 +61,7 @@ window.RESULTADOS = `
 33,COR,MIR,2,0
 33,CTB,VIT,2,0
 34,CHA,MIR,1,2
+34,INT,CTB,1,0
 `;
 
 /* Opcional: em vez de editar a lista acima, você pode publicar uma
