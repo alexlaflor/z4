@@ -64,6 +64,8 @@ window.RESULTADOS = `
 34,INT,CTB,1,0
 34,FLA,GRE,3,1
 34,CAP,VAS,1,3
+34,SAO,COR,0,0
+34,BOT,CAM,1,0
 `;
 
 /* Opcional: em vez de editar a lista acima, você pode publicar uma
