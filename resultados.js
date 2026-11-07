@@ -66,6 +66,7 @@ window.RESULTADOS = `
 34,CAP,VAS,1,3
 34,SAO,COR,0,0
 34,BOT,CAM,1,0
+34,VIT,FLU,0,3
 `;
 
 /* Opcional: em vez de editar a lista acima, você pode publicar uma
