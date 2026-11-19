@@ -70,6 +70,8 @@ window.RESULTADOS = `
 35,MIR,CAM,0,0
 21,CHA,VAS,0,2
 35,CTB,SAN,0,1
+35,COR,BOT,4,0
+34,GRE,BAH,0,0
 `;
 
 /* Opcional: em vez de editar a lista acima, você pode publicar uma
