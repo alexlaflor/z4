@@ -61,23 +61,23 @@ const LIGA = [
   ["CHA", "Chapecoense", 26, 3, 8, 15, 28, 52],
 ];
 const NOMES = {}; LIGA.forEach((t) => (NOMES[t[0]] = t[1]));
-const FOCO = ["BOT", "VIT", "CTB", "MIR", "COR", "INT", "GRE"];
-const CAEM = 2;        // quantos dos sete descem
+const FOCO = ["BOT", "VIT", "MIR", "COR", "INT", "GRE"];
+const CAEM = 2;        // quantos dos seis descem
 const FORA = ["CHA", "REM"];  // já rebaixados, não entram na disputa
 
 /* Jogos dos quatro daqui até o fim: [rodada, mandante, visitante] */
 const JOGOS = [
-  [28, "COR", "FLU"], [28, "GRE", "PAL"], [28, "MIR", "BOT"], [28, "SAO", "INT"], [28, "VAS", "CTB"], [28, "VIT", "CRU"],
-  [29, "BOT", "VAS"], [29, "FLU", "CTB"], [29, "INT", "COR"], [29, "RBB", "MIR"], [29, "REM", "GRE"], [29, "VIT", "CHA"],
+  [28, "COR", "FLU"], [28, "GRE", "PAL"], [28, "MIR", "BOT"], [28, "SAO", "INT"], [28, "VIT", "CRU"],
+  [29, "BOT", "VAS"], [29, "INT", "COR"], [29, "RBB", "MIR"], [29, "REM", "GRE"], [29, "VIT", "CHA"],
   [30, "BAH", "MIR"], [30, "CTB", "BOT"], [30, "GRE", "INT"], [30, "PAL", "COR"], [30, "SAO", "VIT"],
-  [31, "BOT", "CHA"], [31, "CAM", "CTB"], [31, "COR", "VIT"], [31, "GRE", "CRU"], [31, "MIR", "INT"],
+  [31, "BOT", "CHA"], [31, "COR", "VIT"], [31, "GRE", "CRU"], [31, "MIR", "INT"],
   [32, "CTB", "GRE"], [32, "INT", "BOT"], [32, "MIR", "SAO"], [32, "VAS", "COR"], [32, "VIT", "CAP"],
   [33, "COR", "MIR"], [33, "CTB", "VIT"], [33, "FLU", "INT"], [33, "GRE", "CAP"], [33, "REM", "BOT"],
   [34, "BOT", "CAM"], [34, "CHA", "MIR"], [34, "FLA", "GRE"], [34, "INT", "CTB"], [34, "SAO", "COR"], [34, "VIT", "FLU"],
-  [35, "COR", "BOT"], [35, "CTB", "SAN"], [35, "GRE", "BAH"], [35, "MIR", "CAM"], [35, "VAS", "INT"], [35, "VIT", "RBB"],
-  [36, "BAH", "CTB"], [36, "BOT", "SAO"], [36, "CAM", "COR"], [36, "FLU", "MIR"], [36, "INT", "VIT"], [36, "SAN", "GRE"],
-  [37, "BOT", "BAH"], [37, "COR", "GRE"], [37, "CTB", "FLA"], [37, "INT", "RBB"], [37, "MIR", "CAP"], [37, "VIT", "SAN"],
-  [38, "CRU", "INT"], [38, "GRE", "MIR"], [38, "PAL", "CTB"], [38, "REM", "COR"], [38, "SAN", "BOT"], [38, "VAS", "VIT"],
+  [35, "COR", "BOT"], [35, "GRE", "BAH"], [35, "MIR", "CAM"], [35, "VAS", "INT"], [35, "VIT", "RBB"],
+  [36, "BOT", "SAO"], [36, "CAM", "COR"], [36, "FLU", "MIR"], [36, "INT", "VIT"], [36, "SAN", "GRE"],
+  [37, "BOT", "BAH"], [37, "COR", "GRE"], [37, "INT", "RBB"], [37, "MIR", "CAP"], [37, "VIT", "SAN"],
+  [38, "CRU", "INT"], [38, "GRE", "MIR"], [38, "REM", "COR"], [38, "SAN", "BOT"], [38, "VAS", "VIT"],
 ].map(([r, h, a]) => ({ id: `${r}-${h}-${a}`, r, h, a, duelo: FOCO.includes(h) && FOCO.includes(a) }));
 
 const RODADAS = [...new Set(JOGOS.map((j) => j.r))].sort((a, b) => a - b);
@@ -417,7 +417,7 @@ function Pontuacao({ pnt, rodando, recalcular }) {
 
       <p style={S.nota}>
         “Cair” aqui é terminar entre os dois últimos destes {FOCO.length} times, com Chapecoense
-        e Remo já fora da conta. A linha de corte depende de como os outros sete vão: o mesmo
+        e Remo já fora da conta. A linha de corte depende de como os outros cinco vão: o mesmo
         total pode salvar numa temporada e condenar em outra, e é isso que a porcentagem mede.
         O número apagado à direita de cada barra é quantos cenários sustentam aquela linha —
         as pontas da tabela têm menos, e oscilam mais a cada vez que você roda. Faixas com
@@ -466,7 +466,7 @@ async function escudoImg(code, usarPng) {
 
 async function desenharCard({ tabela, oficiais, verPor, usarPng, link }) {
   try { if (document.fonts && document.fonts.ready) await document.fonts.ready; } catch (e) {}
-  const L = 62, GAP = 8, M = 30, W = 1180;
+  const L = 70, GAP = 10, M = 36, W = 1080;
   const CW = (W - 2 * M - L - (FOCO.length - 1) * GAP) / FOCO.length;
   const TOPO = 236, RH = 72;
   const H = TOPO + RODADAS.length * RH + 216;
@@ -499,7 +499,7 @@ async function desenharCard({ tabela, oficiais, verPor, usarPng, link }) {
       const im = imgs[t.code], h = 48, w = im.width ? (im.width / im.height) * h : 41;
       c.drawImage(im, x - w / 2, 148, w, h);
     }
-    cx(t.code, x, 214, fonte(20, "700"), "#16181d");
+    cx(t.code, x, 214, fonte(22, "700"), "#16181d");
   });
 
   RODADAS.forEach((r, ri) => {
@@ -514,7 +514,7 @@ async function desenharCard({ tabela, oficiais, verPor, usarPng, link }) {
           : (g.casa ? of.gh : of.ga) === (g.casa ? of.ga : of.gh) ? "E" : "D")
         : verPor(g.j, code);
       caixa(x, y, CW, RH - 8, 10, of ? "#f3f4f1" : "#ffffff");
-      cx(`${g.adv} ${g.casa ? "casa" : "fora"}`, x + CW / 2, y + 24, fonte(15, "600"), "#6b7076");
+      cx(`${g.adv} ${g.casa ? "casa" : "fora"}`, x + CW / 2, y + 24, fonte(16, "600"), "#6b7076");
       const txt = of ? `${g.casa ? of.gh : of.ga}–${g.casa ? of.ga : of.gh}` : (res || "·");
       cx(txt, x + CW / 2, y + 55, fonte(of ? 24 : 28, "700"), res ? RES_COR[res] : "#c9ccc5");
     });
@@ -724,7 +724,7 @@ function App() {
   };
 
   /* Aba Pontuação: para cada total de pontos, com que frequência um time
-     que terminou ali acabou entre os dois últimos. Junta os sete times e
+     que terminou ali acabou entre os dois últimos. Junta os seis times e
      ignora os palpites — é a pergunta geral "quantos pontos salvam?".  */
   const simularPontos = () => {
     /* o guarda é uma ref, não o estado: o efeito que dispara isso pode
@@ -832,7 +832,7 @@ function App() {
               <span style={S.rlabel} />
               {FOCO.map((c) => (
                 <div key={c} style={S.colHead}>
-                  <Escudo code={c} size={20} />
+                  <Escudo code={c} size={22} />
                   <span style={S.colName}>{c}</span>
                   <span style={S.colPts} className="num">{T[c].pts}</span>
                 </div>
@@ -872,7 +872,7 @@ function App() {
                 const sinal = meu > dele ? "V" : meu === dele ? "E" : "D";
                 return (
                   <div key={c} style={{ ...S.cel, ...S.celFixa }} title={`${NOMES[g.adv]} — resultado oficial`}>
-                    <span style={S.advLinha}><Escudo code={g.adv} size={12} /><span style={S.adv}>{g.adv}</span></span>
+                    <span style={S.advLinha}><Escudo code={g.adv} size={13} /><span style={S.adv}>{g.adv}</span></span>
                     <span style={S.local}>{g.casa ? "🏠" : "✈️"}</span>
                     <span style={{ ...S.placar, color: RES_COR[sinal] }} className="num">{meu}–{dele}</span>
                   </div>
@@ -883,7 +883,7 @@ function App() {
                 <button key={c} style={{ ...S.cel, borderColor: res ? RES_COR[res] : "#dcdeD8" }}
                   onClick={() => set(g.j, c, CICLO[res])}
                   title={`${g.casa ? "em casa contra" : "fora contra"} ${NOMES[g.adv]}`}>
-                  <span style={S.advLinha}><Escudo code={g.adv} size={12} /><span style={S.adv}>{g.adv}</span></span>
+                  <span style={S.advLinha}><Escudo code={g.adv} size={13} /><span style={S.adv}>{g.adv}</span></span>
                   <span style={S.local}>{g.casa ? "🏠" : "✈️"}{g.j.duelo ? " ·" : ""}</span>
                   <span style={{ ...S.res, color: res ? RES_COR[res] : "#c2c5bf" }}>{res || "·"}</span>
                 </button>
@@ -936,7 +936,7 @@ function App() {
                   const d = mc.time[c];
                   return (
                     <div key={c} style={S.mcLinha}>
-                      <Escudo code={c} size={20} />
+                      <Escudo code={c} size={22} />
                       <span style={S.mcNome}>{c}</span>
                       <span style={S.mcPts} className="num">{T[c].pts}</span>
                       <span style={{ ...S.mcCol, ...S.mcPct, color: corRisco(d.quedaX), opacity: .72 }} className="num">
@@ -972,7 +972,7 @@ function App() {
 
         <p style={S.aviso}>
           Quem vem logo acima: {vizinhos.map((t) => `${t.nome} ${t.pts}`).join(", ")}.
-          Se algum deles despencar, a conta de sete times deixa de valer.
+          Se algum deles despencar, a conta de seis times deixa de valer.
         </p>
         </>}
       </main>
@@ -997,7 +997,7 @@ function App() {
             (i < tabela.length - 1 && tabela[i + 1].fim === t.fim && tabela[i + 1].vFim === t.vFim);
           return (
             <div key={t.code} style={{ ...S.fItem, background: cai ? "#fbecea" : "#eef3ee" }}>
-              <Escudo code={t.code} size={17} />
+              <Escudo code={t.code} size={18} />
               <span style={S.fPts} className="num">{t.fim}</span>
               <span style={S.fSub} className="num">{t.feitos}/{t.total}{emp ? " · saldo" : ""}</span>
             </div>
@@ -1042,23 +1042,23 @@ const S = {
   jGols: { width: 62, textAlign: "right", fontSize: 11.5, color: "#3d4148" },
   jPct: { width: 26, textAlign: "right", fontSize: 11.5, fontWeight: 700 },
   jVazio: { fontSize: 12, color: "#8a8f96", padding: "4px 0" },
-  cols: { display: "grid", gridTemplateColumns: "21px repeat(7,1fr)", gap: 2 },
+  cols: { display: "grid", gridTemplateColumns: "24px repeat(6,1fr)", gap: 3 },
   colHead: { display: "flex", flexDirection: "column", alignItems: "center", gap: 2, paddingBottom: 6 },
-    colName: { fontSize: 10, fontWeight: 700, letterSpacing: 0 },
-  colPts: { fontSize: 9, color: "#6b7076" },
+    colName: { fontSize: 11, fontWeight: 700, letterSpacing: ".2px" },
+  colPts: { fontSize: 11, color: "#6b7076" },
 
   main: { flex: 1, padding: "8px 8px 146px", maxWidth: 560, width: "100%", margin: "0 auto" },
   erro: { background: "#fff6e5", border: "1px solid #e8c07d", borderRadius: 8, padding: "9px 11px", fontSize: 12.5, lineHeight: 1.5, marginBottom: 10 },
-  linha: { display: "grid", gridTemplateColumns: "21px repeat(7,1fr)", gap: 2, marginBottom: 5, alignItems: "stretch" },
-  rlabel: { fontSize: 10, fontWeight: 600, color: "#6b7076", display: "flex", alignItems: "center", justifyContent: "flex-end", paddingRight: 2 },
+  linha: { display: "grid", gridTemplateColumns: "24px repeat(6,1fr)", gap: 3, marginBottom: 5, alignItems: "stretch" },
+  rlabel: { fontSize: 11, fontWeight: 600, color: "#6b7076", display: "flex", alignItems: "center", justifyContent: "flex-end", paddingRight: 2 },
   vazio: { background: "#e3e5df", borderRadius: 6, display: "grid", placeItems: "center", color: "#b9bcb6", fontSize: 13 },
   cel: { background: "#fff", border: "2px solid #dcdeD8", borderRadius: 6, padding: "4px 1px 3px", display: "flex", flexDirection: "column", alignItems: "center", lineHeight: 1.1 },
   celFixa: { background: "#f3f4f1", borderStyle: "dashed", borderColor: "#c9ccc5", cursor: "default" },
   advLinha: { display: "flex", alignItems: "center", gap: 2 },
-  adv: { fontSize: 8.5, fontWeight: 700, letterSpacing: 0 },
-  local: { fontSize: 8.5, marginTop: 1 },
-  res: { fontSize: 15, fontWeight: 700, marginTop: 1 },
-  placar: { fontSize: 12, fontWeight: 700, marginTop: 2 },
+  adv: { fontSize: 9.5, fontWeight: 700, letterSpacing: ".2px" },
+  local: { fontSize: 9, marginTop: 1 },
+  res: { fontSize: 16, fontWeight: 700, marginTop: 1 },
+  placar: { fontSize: 13, fontWeight: 700, marginTop: 2 },
 
   share: { width: "100%", marginTop: 14, background: "#16181d", color: "#fff", borderRadius: 8, padding: "13px", fontSize: 16, fontWeight: 600 },
   acoes: { display: "flex", gap: 8, marginTop: 8 },
@@ -1095,10 +1095,10 @@ const S = {
   mcNota: { margin: "9px 0 0", fontSize: 11.5, color: "#8a8f96", lineHeight: 1.4 },
   aviso: { marginTop: 14, fontSize: 12, lineHeight: 1.5, color: "#8a8f96", maxWidth: "52ch" },
 
-  foot: { position: "fixed", left: 0, right: 0, bottom: 0, background: "#fff", borderTop: "1px solid #d5d7d1", padding: "8px 8px calc(9px + env(safe-area-inset-bottom))", display: "grid", gridTemplateColumns: "repeat(7,1fr)", gap: 3, maxWidth: 560, margin: "0 auto" },
-  fItem: { borderRadius: 6, padding: "6px 1px", display: "flex", flexDirection: "column", alignItems: "center", gap: 2 },
-  fPts: { fontSize: 15, fontWeight: 700, lineHeight: 1 },
-  fSub: { fontSize: 8.5, color: "#8a8f96" },
+  foot: { position: "fixed", left: 0, right: 0, bottom: 0, background: "#fff", borderTop: "1px solid #d5d7d1", padding: "8px 8px calc(9px + env(safe-area-inset-bottom))", display: "grid", gridTemplateColumns: "repeat(6,1fr)", gap: 4, maxWidth: 560, margin: "0 auto" },
+  fItem: { borderRadius: 7, padding: "6px 2px", display: "flex", flexDirection: "column", alignItems: "center", gap: 2 },
+  fPts: { fontSize: 17, fontWeight: 700, lineHeight: 1 },
+  fSub: { fontSize: 9, color: "#8a8f96" },
 };
 
 ReactDOM.createRoot(document.getElementById("root")).render(<App />);
