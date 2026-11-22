@@ -75,6 +75,7 @@ window.RESULTADOS = `
 35,VAS,INT,2,1
 35,VIT,RBB,2,1
 36,BAH,CTB,0,1
+36,FLU,MIR,1,0
 `;
 
 /* Opcional: em vez de editar a lista acima, você pode publicar uma
