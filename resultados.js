@@ -78,6 +78,7 @@ window.RESULTADOS = `
 36,FLU,MIR,1,0
 36,INT,VIT,2,5
 36,BOT,SAO,1,1
+36,SAN,GRE,0,2
 `;
 
 /* Opcional: em vez de editar a lista acima, você pode publicar uma
